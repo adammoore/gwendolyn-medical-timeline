@@ -8,23 +8,49 @@ and vector storage for enhanced search capabilities.
 
 import os
 import re
-import pytesseract
-import pdf2image
-import cv2
+import sys
 import numpy as np
 from PIL import Image
-import docx2txt
-from pypdf import PdfReader
 import json
 import hashlib
 from datetime import datetime
 import improved_phb_details as phb_details
 import patient_info
 
+# Try to import OCR-related libraries, but continue if they're not available
+try:
+    import pytesseract
+    import pdf2image
+    import cv2
+    TESSERACT_AVAILABLE = True
+except ImportError:
+    print("Warning: OCR libraries not fully available. OCR functionality will be limited.")
+    TESSERACT_AVAILABLE = False
+
+# Try to import document processing libraries
+try:
+    import docx2txt
+    DOCX_AVAILABLE = True
+except ImportError:
+    print("Warning: docx2txt not available. DOCX processing will be limited.")
+    DOCX_AVAILABLE = False
+
+try:
+    from pypdf import PdfReader
+    PDF_AVAILABLE = True
+except ImportError:
+    print("Warning: pypdf not available. PDF processing will be limited.")
+    PDF_AVAILABLE = False
+
 # Set up vector database
-from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+try:
+    from langchain_community.vectorstores import FAISS
+    from langchain_community.embeddings import HuggingFaceEmbeddings
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    VECTOR_DB_AVAILABLE = True
+except ImportError:
+    print("Warning: Vector database libraries not available. Search functionality will be limited.")
+    VECTOR_DB_AVAILABLE = False
 
 # Directory for processed attachment content
 PROCESSED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processed_attachments")
@@ -34,15 +60,19 @@ os.makedirs(PROCESSED_DIR, exist_ok=True)
 VECTOR_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vector_db")
 os.makedirs(VECTOR_DB_PATH, exist_ok=True)
 
-# Initialize embeddings model
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-# Text splitter for chunking documents
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=200,
-    length_function=len,
-)
+# Initialize embeddings model if available
+if VECTOR_DB_AVAILABLE:
+    try:
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        # Text splitter for chunking documents
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            length_function=len,
+        )
+    except Exception as e:
+        print(f"Warning: Could not initialize embeddings model: {e}")
+        VECTOR_DB_AVAILABLE = False
 
 def process_image(image_path):
     """
@@ -54,6 +84,9 @@ def process_image(image_path):
     Returns:
         str: Extracted text from the image.
     """
+    if not TESSERACT_AVAILABLE:
+        return "OCR not available. Install pytesseract, pdf2image, and opencv-python-headless."
+    
     try:
         # Read the image
         img = cv2.imread(image_path)
@@ -77,7 +110,7 @@ def process_image(image_path):
         return text
     except Exception as e:
         print(f"Error processing image {image_path}: {e}")
-        return ""
+        return f"Error processing image: {str(e)}"
 
 def process_pdf(pdf_path):
     """
@@ -89,6 +122,9 @@ def process_pdf(pdf_path):
     Returns:
         str: Extracted text from the PDF.
     """
+    if not PDF_AVAILABLE:
+        return "PDF processing not available. Install pypdf."
+    
     try:
         # First try to extract text directly
         pdf = PdfReader(pdf_path)
@@ -99,8 +135,8 @@ def process_pdf(pdf_path):
             if page_text:
                 text += page_text + "\n\n"
         
-        # If no text was extracted, use OCR
-        if not text.strip():
+        # If no text was extracted and OCR is available, use OCR
+        if not text.strip() and TESSERACT_AVAILABLE:
             # Convert PDF to images
             images = pdf2image.convert_from_path(pdf_path)
             
@@ -122,7 +158,7 @@ def process_pdf(pdf_path):
         return text
     except Exception as e:
         print(f"Error processing PDF {pdf_path}: {e}")
-        return ""
+        return f"Error processing PDF: {str(e)}"
 
 def process_docx(docx_path):
     """
@@ -134,12 +170,15 @@ def process_docx(docx_path):
     Returns:
         str: Extracted text from the DOCX file.
     """
+    if not DOCX_AVAILABLE:
+        return "DOCX processing not available. Install docx2txt."
+    
     try:
         text = docx2txt.process(docx_path)
         return text
     except Exception as e:
         print(f"Error processing DOCX {docx_path}: {e}")
-        return ""
+        return f"Error processing DOCX: {str(e)}"
 
 def process_attachment(attachment):
     """
@@ -157,6 +196,7 @@ def process_attachment(attachment):
     
     # Skip if file doesn't exist
     if not os.path.exists(file_path):
+        attachment["extracted_text"] = "File not found"
         return attachment
     
     # Check if we've already processed this attachment
@@ -177,12 +217,21 @@ def process_attachment(attachment):
     extracted_text = ""
     
     if mime_type.startswith("image/"):
-        extracted_text = process_image(file_path)
+        if TESSERACT_AVAILABLE:
+            extracted_text = process_image(file_path)
+        else:
+            extracted_text = "Image OCR not available. Install pytesseract and opencv-python-headless."
     elif mime_type == "application/pdf":
-        extracted_text = process_pdf(file_path)
+        if PDF_AVAILABLE:
+            extracted_text = process_pdf(file_path)
+        else:
+            extracted_text = "PDF processing not available. Install pypdf and pdf2image."
     elif mime_type in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
                       "application/msword"]:
-        extracted_text = process_docx(file_path)
+        if DOCX_AVAILABLE:
+            extracted_text = process_docx(file_path)
+        else:
+            extracted_text = "DOCX processing not available. Install docx2txt."
     
     # Extract medical information
     medical_info = {}
@@ -287,7 +336,7 @@ def extract_personnel(text):
     # Process doctors
     for name in doctors:
         # Skip if this is Adam Vials Moore (the father, not a doctor)
-        if "Adam Vials" in name or "Adam Moore" in name:
+        if patient_info.is_family_member(name):
             continue
             
         category = phb_details.categorize_personnel(name, "doctor")
@@ -299,6 +348,9 @@ def extract_personnel(text):
     
     # Process nurses
     for name in nurses:
+        if patient_info.is_family_member(name):
+            continue
+            
         category = phb_details.categorize_personnel(name, "nurse")
         personnel.append({
             "name": name,
@@ -308,6 +360,9 @@ def extract_personnel(text):
     
     # Process therapists
     for name in therapists:
+        if patient_info.is_family_member(name):
+            continue
+            
         category = phb_details.categorize_personnel(name, "therapist")
         personnel.append({
             "name": name,
@@ -571,6 +626,10 @@ def create_vector_store(events):
     Returns:
         FAISS: Vector store for semantic search.
     """
+    if not VECTOR_DB_AVAILABLE:
+        print("Vector database functionality not available. Install langchain, langchain-community, and faiss-cpu.")
+        return None
+    
     documents = []
     
     for event in events:
@@ -603,12 +662,16 @@ def create_vector_store(events):
             metadatas.append(doc["metadata"])
     
     # Create vector store
-    vector_store = FAISS.from_texts(texts=texts, embedding=embeddings, metadatas=metadatas)
-    
-    # Save vector store
-    vector_store.save_local(VECTOR_DB_PATH)
-    
-    return vector_store
+    try:
+        vector_store = FAISS.from_texts(texts=texts, embedding=embeddings, metadatas=metadatas)
+        
+        # Save vector store
+        vector_store.save_local(VECTOR_DB_PATH)
+        
+        return vector_store
+    except Exception as e:
+        print(f"Error creating vector store: {e}")
+        return None
 
 def load_vector_store():
     """
@@ -617,8 +680,15 @@ def load_vector_store():
     Returns:
         FAISS: Vector store for semantic search.
     """
-    if os.path.exists(os.path.join(VECTOR_DB_PATH, "index.faiss")):
-        return FAISS.load_local(VECTOR_DB_PATH, embeddings)
+    if not VECTOR_DB_AVAILABLE:
+        return None
+    
+    try:
+        if os.path.exists(os.path.join(VECTOR_DB_PATH, "index.faiss")):
+            return FAISS.load_local(VECTOR_DB_PATH, embeddings)
+    except Exception as e:
+        print(f"Error loading vector store: {e}")
+    
     return None
 
 def semantic_search(query, k=5):
@@ -636,8 +706,12 @@ def semantic_search(query, k=5):
     if not vector_store:
         return []
     
-    results = vector_store.similarity_search(query, k=k)
-    return results
+    try:
+        results = vector_store.similarity_search(query, k=k)
+        return results
+    except Exception as e:
+        print(f"Error performing semantic search: {e}")
+        return []
 
 def update_patient_info_from_events(events):
     """

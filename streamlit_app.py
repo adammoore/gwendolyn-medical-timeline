@@ -22,6 +22,7 @@ import json
 import base64
 from PIL import Image
 import io
+from collections import defaultdict
 
 # Import our modules
 from enex_parser import get_all_events_from_directory, extract_diagnostic_journey
@@ -89,9 +90,20 @@ def display_attachment(attachment):
     
     elif mime_type == "application/pdf":
         # Display PDF using an iframe
-        base64_pdf = get_file_content_as_base64(file_path)
-        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
-        st.markdown(pdf_display, unsafe_allow_html=True)
+        try:
+            base64_pdf = get_file_content_as_base64(file_path)
+            pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+            st.markdown(pdf_display, unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"Error displaying PDF: {e}")
+            # Provide a download link as fallback
+            with open(file_path, "rb") as file:
+                btn = st.download_button(
+                    label=f"Download {file_name}",
+                    data=file,
+                    file_name=file_name,
+                    mime=mime_type
+                )
     
     else:
         # For other file types, provide a download link
@@ -128,10 +140,10 @@ def display_timeline(events, title="Medical Timeline"):
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values("date")
     
-    # Create a Plotly figure
-    fig = px.timeline(
+    # Create a simple bar chart instead of a timeline
+    fig = px.bar(
         df,
-        x_start="date",
+        x="date",
         y="specialty",
         color="specialty",
         hover_name="title",
@@ -383,10 +395,10 @@ def display_diagnostic_journey():
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values("date")
     
-    # Create a Plotly figure
-    fig = px.timeline(
+    # Create a simple bar chart instead of a timeline
+    fig = px.bar(
         df,
-        x_start="date",
+        x="date",
         y="specialty",
         color="specialty",
         hover_name="title",
@@ -419,6 +431,224 @@ def display_diagnostic_journey():
         hide_index=True
     )
 
+def display_medical_practitioners():
+    """
+    Display a list of all medical practitioners and their associated resources.
+    """
+    st.subheader("Medical Practitioners")
+    
+    events = get_events()
+    
+    # Collect all personnel from events
+    all_personnel = defaultdict(list)
+    
+    for event in events:
+        if "personnel" in event and event["personnel"]:
+            for person in event["personnel"]:
+                if person["name"] != "Unknown":
+                    # Add this event to the person's list
+                    all_personnel[person["name"]].append({
+                        "event_id": event["id"],
+                        "event_date": event["date"],
+                        "event_title": event["title"],
+                        "specialty": event["specialty"],
+                        "person_type": person["type"],
+                        "person_specialty": person["specialty"],
+                        "attachments": event.get("attachments", [])
+                    })
+    
+    # Sort personnel by name
+    sorted_personnel = sorted(all_personnel.items())
+    
+    # Display each practitioner
+    for name, events in sorted_personnel:
+        with st.expander(f"{name} ({events[0]['person_type']})"):
+            st.markdown(f"**Specialty:** {events[0]['person_specialty']}")
+            st.markdown(f"**Number of Interactions:** {len(events)}")
+            
+            # Display events table
+            events_df = pd.DataFrame([
+                {
+                    "Date": e["event_date"],
+                    "Title": e["event_title"],
+                    "Specialty": e["specialty"],
+                    "Attachments": len(e["attachments"])
+                }
+                for e in events
+            ])
+            
+            st.dataframe(events_df, use_container_width=True, hide_index=True)
+            
+            # Display attachments
+            all_attachments = []
+            for e in events:
+                for attachment in e["attachments"]:
+                    all_attachments.append({
+                        "event_date": e["event_date"],
+                        "event_title": e["event_title"],
+                        "file_name": attachment["file_name"],
+                        "file_path": attachment["file_path"],
+                        "mime_type": attachment["mime_type"]
+                    })
+            
+            if all_attachments:
+                st.markdown("### Related Documents")
+                
+                for attachment in all_attachments:
+                    st.markdown(f"**{attachment['event_date']} - {attachment['file_name']}**")
+                    
+                    # Display the attachment
+                    file_path = attachment["file_path"]
+                    mime_type = attachment["mime_type"]
+                    
+                    if os.path.exists(file_path):
+                        if mime_type.startswith("image/"):
+                            try:
+                                image = Image.open(file_path)
+                                st.image(image, caption=attachment["file_name"])
+                            except Exception as e:
+                                st.error(f"Error displaying image: {e}")
+                                with open(file_path, "rb") as file:
+                                    st.download_button(
+                                        label=f"Download {attachment['file_name']}",
+                                        data=file,
+                                        file_name=attachment["file_name"],
+                                        mime=mime_type
+                                    )
+                        elif mime_type == "application/pdf":
+                            try:
+                                base64_pdf = get_file_content_as_base64(file_path)
+                                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+                                st.markdown(pdf_display, unsafe_allow_html=True)
+                            except Exception as e:
+                                st.error(f"Error displaying PDF: {e}")
+                                with open(file_path, "rb") as file:
+                                    st.download_button(
+                                        label=f"Download {attachment['file_name']}",
+                                        data=file,
+                                        file_name=attachment["file_name"],
+                                        mime=mime_type
+                                    )
+                        else:
+                            with open(file_path, "rb") as file:
+                                st.download_button(
+                                    label=f"Download {attachment['file_name']}",
+                                    data=file,
+                                    file_name=attachment["file_name"],
+                                    mime=mime_type
+                                )
+                    else:
+                        st.warning(f"File not found: {attachment['file_name']}")
+
+def display_medical_facilities():
+    """
+    Display a list of all medical facilities and their associated resources.
+    """
+    st.subheader("Medical Facilities")
+    
+    events = get_events()
+    
+    # Collect all facilities from events
+    all_facilities = defaultdict(list)
+    
+    for event in events:
+        if "facilities" in event and event["facilities"]:
+            for facility in event["facilities"]:
+                if facility["name"] != "Unknown":
+                    # Add this event to the facility's list
+                    all_facilities[facility["name"]].append({
+                        "event_id": event["id"],
+                        "event_date": event["date"],
+                        "event_title": event["title"],
+                        "specialty": event["specialty"],
+                        "facility_type": facility["type"],
+                        "facility_specialty": facility["specialty"],
+                        "attachments": event.get("attachments", [])
+                    })
+    
+    # Sort facilities by name
+    sorted_facilities = sorted(all_facilities.items())
+    
+    # Display each facility
+    for name, events in sorted_facilities:
+        with st.expander(f"{name} ({events[0]['facility_type']})"):
+            st.markdown(f"**Specialty:** {events[0]['facility_specialty']}")
+            st.markdown(f"**Number of Interactions:** {len(events)}")
+            
+            # Display events table
+            events_df = pd.DataFrame([
+                {
+                    "Date": e["event_date"],
+                    "Title": e["event_title"],
+                    "Specialty": e["specialty"],
+                    "Attachments": len(e["attachments"])
+                }
+                for e in events
+            ])
+            
+            st.dataframe(events_df, use_container_width=True, hide_index=True)
+            
+            # Display attachments
+            all_attachments = []
+            for e in events:
+                for attachment in e["attachments"]:
+                    all_attachments.append({
+                        "event_date": e["event_date"],
+                        "event_title": e["event_title"],
+                        "file_name": attachment["file_name"],
+                        "file_path": attachment["file_path"],
+                        "mime_type": attachment["mime_type"]
+                    })
+            
+            if all_attachments:
+                st.markdown("### Related Documents")
+                
+                for attachment in all_attachments:
+                    st.markdown(f"**{attachment['event_date']} - {attachment['file_name']}**")
+                    
+                    # Display the attachment
+                    file_path = attachment["file_path"]
+                    mime_type = attachment["mime_type"]
+                    
+                    if os.path.exists(file_path):
+                        if mime_type.startswith("image/"):
+                            try:
+                                image = Image.open(file_path)
+                                st.image(image, caption=attachment["file_name"])
+                            except Exception as e:
+                                st.error(f"Error displaying image: {e}")
+                                with open(file_path, "rb") as file:
+                                    st.download_button(
+                                        label=f"Download {attachment['file_name']}",
+                                        data=file,
+                                        file_name=attachment["file_name"],
+                                        mime=mime_type
+                                    )
+                        elif mime_type == "application/pdf":
+                            try:
+                                base64_pdf = get_file_content_as_base64(file_path)
+                                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+                                st.markdown(pdf_display, unsafe_allow_html=True)
+                            except Exception as e:
+                                st.error(f"Error displaying PDF: {e}")
+                                with open(file_path, "rb") as file:
+                                    st.download_button(
+                                        label=f"Download {attachment['file_name']}",
+                                        data=file,
+                                        file_name=attachment["file_name"],
+                                        mime=mime_type
+                                    )
+                        else:
+                            with open(file_path, "rb") as file:
+                                st.download_button(
+                                    label=f"Download {attachment['file_name']}",
+                                    data=file,
+                                    file_name=attachment["file_name"],
+                                    mime=mime_type
+                                )
+                    else:
+                        st.warning(f"File not found: {attachment['file_name']}")
+
 def main():
     """
     Main function to run the Streamlit app.
@@ -429,7 +659,7 @@ def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
         "Go to",
-        ["Timeline", "Diagnostic Journey", "PHB Categories", "PHB Supports", "Patient Info", "Search"]
+        ["Timeline", "Diagnostic Journey", "Medical Practitioners", "Medical Facilities", "PHB Categories", "PHB Supports", "Patient Info", "Search"]
     )
     
     # Display the selected page
@@ -439,6 +669,12 @@ def main():
     
     elif page == "Diagnostic Journey":
         display_diagnostic_journey()
+    
+    elif page == "Medical Practitioners":
+        display_medical_practitioners()
+    
+    elif page == "Medical Facilities":
+        display_medical_facilities()
     
     elif page == "PHB Categories":
         display_phb_categories()
