@@ -132,6 +132,16 @@ def display_attachment(attachment, key_prefix=""):
                 mime=mime_type,
                 key=f"download_other_{unique_key}"
             )
+    
+    # Display extracted text if available
+    if "extracted_text" in attachment and attachment["extracted_text"]:
+        st.markdown("**Extracted Text:**")
+        st.text_area(
+            "Content", 
+            attachment["extracted_text"], 
+            height=200,
+            key=f"text_{unique_key}"
+        )
 
 def display_timeline(events, title="Medical Timeline"):
     """
@@ -236,11 +246,6 @@ def display_timeline(events, title="Medical Timeline"):
                 for j, attachment in enumerate(event["attachments"]):
                     st.markdown(f"**{attachment['file_name']}**")
                     display_attachment(attachment, key_prefix=f"event_{i}_attachment_{j}")
-                    
-                    # Display extracted text if available
-                    if "extracted_text" in attachment and attachment["extracted_text"]:
-                        with st.expander("View Extracted Text"):
-                            st.text(attachment["extracted_text"])
 
 def display_phb_categories():
     """
