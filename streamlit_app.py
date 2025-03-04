@@ -2,14 +2,12 @@
 streamlit_app.py
 
 A Streamlit application that:
-1. Reads Evernote export (.enex) files.
-2. Extracts timeline events with PHB integration.
-3. Renders an interactive PHB-centric timeline.
-4. Provides a diagnostic journey timeline.
-5. Includes patient information.
-6. Handles attachments and Evernote links.
-7. Processes attachments with OCR and adds content to knowledge base.
-8. Provides semantic search across all content.
+1. Reads from the knowledge store created by the indexing script.
+2. Renders an interactive PHB-centric timeline.
+3. Provides a diagnostic journey timeline.
+4. Includes patient information.
+5. Handles attachments and Evernote links.
+6. Provides semantic search across all content.
 """
 
 import streamlit as st
@@ -26,7 +24,7 @@ from collections import defaultdict
 import uuid
 
 # Import our modules
-from enex_parser import get_all_events_from_directory, extract_diagnostic_journey
+import knowledge_store_reader as ks
 import improved_phb_details as phb_details
 import patient_info
 import evernote_utils
@@ -41,26 +39,50 @@ st.set_page_config(
 )
 
 # Directory containing Evernote export files
-ENEX_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ATTACHMENTS_DIR = os.path.join(BASE_DIR, "attachments")
 
-# Directory for attachments
-ATTACHMENTS_DIR = os.path.join(ENEX_DIR, "attachments")
-
-# Cache the events to avoid re-parsing on every page refresh
+# Cache the events to avoid re-loading on every page refresh
 @st.cache_data
 def get_events():
     """
-    Get all events, using cache if available.
+    Get all events from the knowledge store.
     """
-    return get_all_events_from_directory(ENEX_DIR)
+    return ks.get_events()
 
 @st.cache_data
 def get_diagnostic_journey():
     """
-    Get the diagnostic journey, using cache if available.
+    Get the diagnostic journey from the knowledge store.
     """
     events = get_events()
-    return extract_diagnostic_journey(events)
+    return ks.get_diagnostic_journey(events)
+
+@st.cache_data
+def get_patient_info():
+    """
+    Get patient information from the knowledge store.
+    """
+    # Try to get from knowledge store first
+    ks_patient_info = ks.get_patient_info()
+    if ks_patient_info:
+        return ks_patient_info
+    
+    # Fall back to the module
+    return patient_info.PATIENT_INFO
+
+@st.cache_data
+def get_phb_categories():
+    """
+    Get PHB categories from the knowledge store.
+    """
+    # Try to get from knowledge store first
+    ks_phb_categories = ks.get_phb_categories()
+    if ks_phb_categories:
+        return ks_phb_categories
+    
+    # Fall back to the module
+    return phb_details.PHB_CATEGORIES
 
 def get_file_content_as_base64(file_path):
     """
@@ -253,11 +275,14 @@ def display_phb_categories():
     """
     st.subheader("Personal Health Budget (PHB) Categories")
     
+    # Get PHB categories
+    phb_categories = get_phb_categories()
+    
     # Create columns for the categories
     cols = st.columns(3)
     
     # Display each category in a card
-    for i, (category, info) in enumerate(phb_details.PHB_CATEGORIES.items()):
+    for i, (category, info) in enumerate(phb_categories.items()):
         col = cols[i % 3]
         with col:
             st.markdown(f"### {category}")
@@ -292,31 +317,38 @@ def display_patient_info():
     """
     st.subheader("Patient Information")
     
+    # Get patient info
+    patient_info_data = get_patient_info()
+    
     # Calculate current age
-    current_age = patient_info.get_age()
-    current_age_str = patient_info.format_age(current_age)
+    dob = patient_info_data.get("dob", "")
+    if dob:
+        current_age = patient_info.get_age()
+        current_age_str = patient_info.format_age(current_age)
+    else:
+        current_age_str = "Unknown"
     
     # Display basic information
-    st.markdown(f"**Name:** {patient_info.PATIENT_INFO['name']}")
-    st.markdown(f"**Date of Birth:** {patient_info.PATIENT_INFO['dob']}")
+    st.markdown(f"**Name:** {patient_info_data.get('name', 'Unknown')}")
+    st.markdown(f"**Date of Birth:** {dob}")
     st.markdown(f"**Current Age:** {current_age_str}")
-    st.markdown(f"**Birth Location:** {patient_info.PATIENT_INFO['birth_location']}")
+    st.markdown(f"**Birth Location:** {patient_info_data.get('birth_location', 'Unknown')}")
     
     # Display family information
     st.markdown("### Family")
-    for family_member in patient_info.PATIENT_INFO['family']:
+    for family_member in patient_info_data.get('family', []):
         notes = f" - {family_member['notes']}" if 'notes' in family_member else ""
         st.markdown(f"- **{family_member['name']}** ({family_member['relation']}){notes}")
     
     # Display identifiers if available
-    if "identifiers" in patient_info.PATIENT_INFO and patient_info.PATIENT_INFO["identifiers"]:
+    if "identifiers" in patient_info_data and patient_info_data["identifiers"]:
         st.markdown("### Identifiers")
-        for key, value in patient_info.PATIENT_INFO["identifiers"].items():
+        for key, value in patient_info_data["identifiers"].items():
             st.markdown(f"- **{key.replace('_', ' ').title()}:** {value}")
     
     # Display key dates
     st.markdown("### Key Dates")
-    for date_info in patient_info.PATIENT_INFO['key_dates']:
+    for date_info in patient_info_data.get('key_dates', []):
         st.markdown(f"- **{date_info['date']}:** {date_info['event']} at {date_info['location']}")
 
 def display_search_interface():
@@ -600,6 +632,114 @@ def display_medical_facilities():
                         key_prefix=f"facility_{i}_attachment_{j}"
                     )
 
+def display_system_status():
+    """
+    Display system status information.
+    """
+    st.subheader("System Status")
+    
+    # Get OCR status
+    ocr_status = attachment_processor.get_ocr_status()
+    
+    # Display status in a table
+    status_data = {
+        "Component": [
+            "Tesseract OCR", 
+            "PDF to Image Conversion", 
+            "OpenCV Image Processing", 
+            "DOCX Processing", 
+            "PDF Text Extraction",
+            "Vector Database"
+        ],
+        "Status": [
+            "✅ Available" if ocr_status["tesseract_available"] else "❌ Not Available",
+            "✅ Available" if ocr_status["pdf_image_available"] else "❌ Not Available",
+            "✅ Available" if ocr_status["cv2_available"] else "❌ Not Available",
+            "✅ Available" if ocr_status["docx_available"] else "❌ Not Available",
+            "✅ Available" if ocr_status["pdf_available"] else "❌ Not Available",
+            "✅ Available" if ocr_status["vector_db_available"] else "❌ Not Available"
+        ]
+    }
+    
+    status_df = pd.DataFrame(status_data)
+    st.dataframe(status_df, use_container_width=True, hide_index=True)
+    
+    # Display knowledge store status
+    st.subheader("Knowledge Store Status")
+    
+    if ks.is_knowledge_store_available():
+        stats = ks.get_knowledge_store_stats()
+        
+        # Display stats in a table
+        stats_data = {
+            "Metric": [
+                "Events", 
+                "Notes", 
+                "External Documents", 
+                "Attachments", 
+                "Personnel", 
+                "Facilities",
+                "Specialties",
+                "Date Range",
+                "Last Updated"
+            ],
+            "Value": [
+                stats["events_count"],
+                stats["notes_count"],
+                stats["external_docs_count"],
+                stats["attachment_count"],
+                stats["personnel_count"],
+                stats["facilities_count"],
+                stats["specialties_count"],
+                stats["date_range"],
+                stats["last_updated"]
+            ]
+        }
+        
+        stats_df = pd.DataFrame(stats_data)
+        st.dataframe(stats_df, use_container_width=True, hide_index=True)
+    else:
+        st.warning("""
+        Knowledge store not found. Please run the indexing script to create the knowledge store:
+        
+        ```
+        python index_documents.py
+        ```
+        """)
+    
+    # Display installation instructions
+    st.markdown("### Installation Instructions")
+    
+    if not ocr_status["tesseract_available"]:
+        st.markdown("""
+        #### Tesseract OCR Installation
+        
+        To enable OCR functionality for images and PDFs, install Tesseract OCR:
+        
+        - **macOS**: `brew install tesseract`
+        - **Ubuntu/Debian**: `apt-get install tesseract-ocr`
+        - **Windows**: Download and install from [GitHub](https://github.com/UB-Mannheim/tesseract/wiki)
+        """)
+    
+    if not ocr_status["pdf_image_available"]:
+        st.markdown("""
+        #### Poppler Installation (for PDF processing)
+        
+        To enable PDF to image conversion for OCR:
+        
+        - **macOS**: `brew install poppler`
+        - **Ubuntu/Debian**: `apt-get install poppler-utils`
+        - **Windows**: Download and install from [poppler for Windows](http://blog.alivate.com.au/poppler-windows/)
+        """)
+    
+    # Display note about limited functionality
+    if not all([ocr_status["tesseract_available"], ocr_status["pdf_image_available"], ocr_status["cv2_available"]]):
+        st.warning("""
+        **Note:** Some document processing features are limited due to missing dependencies. 
+        The application will still function, but text extraction from images and PDFs will be limited.
+        Basic information about documents will still be displayed.
+        """)
+
 def main():
     """
     Main function to run the Streamlit app.
@@ -610,8 +750,22 @@ def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
         "Go to",
-        ["Timeline", "Diagnostic Journey", "Medical Practitioners", "Medical Facilities", "PHB Categories", "PHB Supports", "Patient Info", "Search"]
+        ["Timeline", "Diagnostic Journey", "Medical Practitioners", "Medical Facilities", 
+         "PHB Categories", "PHB Supports", "Patient Info", "Search", "System Status"]
     )
+    
+    # Check if knowledge store is available
+    if not ks.is_knowledge_store_available() and page != "System Status":
+        st.warning("""
+        Knowledge store not found. Please run the indexing script to create the knowledge store:
+        
+        ```
+        python index_documents.py
+        ```
+        
+        Switching to System Status page.
+        """)
+        page = "System Status"
     
     # Display the selected page
     if page == "Timeline":
@@ -638,6 +792,9 @@ def main():
     
     elif page == "Search":
         display_search_interface()
+    
+    elif page == "System Status":
+        display_system_status()
     
     # Footer
     st.sidebar.markdown("---")

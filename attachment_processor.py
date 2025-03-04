@@ -17,30 +17,43 @@ from datetime import datetime
 import improved_phb_details as phb_details
 import patient_info
 
-# Try to import OCR-related libraries, but continue if they're not available
+# Check for OCR-related libraries
+TESSERACT_AVAILABLE = False
+PDF_IMAGE_AVAILABLE = False
+CV2_AVAILABLE = False
+DOCX_AVAILABLE = False
+PDF_AVAILABLE = False
+VECTOR_DB_AVAILABLE = False
+
 try:
     import pytesseract
-    import pdf2image
-    import cv2
     TESSERACT_AVAILABLE = True
 except ImportError:
-    print("Warning: OCR libraries not fully available. OCR functionality will be limited.")
-    TESSERACT_AVAILABLE = False
+    print("Warning: pytesseract not available. OCR functionality will be limited.")
 
-# Try to import document processing libraries
+try:
+    import pdf2image
+    PDF_IMAGE_AVAILABLE = True
+except ImportError:
+    print("Warning: pdf2image not available. PDF processing will be limited.")
+
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    print("Warning: OpenCV not available. Image processing will be limited.")
+
 try:
     import docx2txt
     DOCX_AVAILABLE = True
 except ImportError:
     print("Warning: docx2txt not available. DOCX processing will be limited.")
-    DOCX_AVAILABLE = False
 
 try:
     from pypdf import PdfReader
     PDF_AVAILABLE = True
 except ImportError:
     print("Warning: pypdf not available. PDF processing will be limited.")
-    PDF_AVAILABLE = False
 
 # Set up vector database
 try:
@@ -50,7 +63,6 @@ try:
     VECTOR_DB_AVAILABLE = True
 except ImportError:
     print("Warning: Vector database libraries not available. Search functionality will be limited.")
-    VECTOR_DB_AVAILABLE = False
 
 # Directory for processed attachment content
 PROCESSED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processed_attachments")
@@ -61,6 +73,8 @@ VECTOR_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vecto
 os.makedirs(VECTOR_DB_PATH, exist_ok=True)
 
 # Initialize embeddings model if available
+embeddings = None
+text_splitter = None
 if VECTOR_DB_AVAILABLE:
     try:
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -74,6 +88,25 @@ if VECTOR_DB_AVAILABLE:
         print(f"Warning: Could not initialize embeddings model: {e}")
         VECTOR_DB_AVAILABLE = False
 
+def extract_text_from_image_basic(image_path):
+    """
+    Extract text from an image using basic PIL functionality.
+    This is a fallback when OCR is not available.
+    
+    Parameters:
+        image_path (str): Path to the image file.
+        
+    Returns:
+        str: A message indicating OCR is not available.
+    """
+    try:
+        # Just verify the image can be opened
+        img = Image.open(image_path)
+        width, height = img.size
+        return f"[Image: {width}x{height}] OCR text extraction not available. Install pytesseract for OCR functionality."
+    except Exception as e:
+        return f"Error opening image: {str(e)}"
+
 def process_image(image_path):
     """
     Process an image file using OCR to extract text.
@@ -84,8 +117,8 @@ def process_image(image_path):
     Returns:
         str: Extracted text from the image.
     """
-    if not TESSERACT_AVAILABLE:
-        return "OCR not available. Install pytesseract, pdf2image, and opencv-python-headless."
+    if not TESSERACT_AVAILABLE or not CV2_AVAILABLE:
+        return extract_text_from_image_basic(image_path)
     
     try:
         # Read the image
@@ -112,6 +145,24 @@ def process_image(image_path):
         print(f"Error processing image {image_path}: {e}")
         return f"Error processing image: {str(e)}"
 
+def extract_text_from_pdf_basic(pdf_path):
+    """
+    Extract text from a PDF using basic functionality.
+    This is a fallback when full PDF processing is not available.
+    
+    Parameters:
+        pdf_path (str): Path to the PDF file.
+        
+    Returns:
+        str: Basic information about the PDF.
+    """
+    try:
+        # Just verify the PDF exists
+        file_size = os.path.getsize(pdf_path) / 1024  # Size in KB
+        return f"[PDF: {file_size:.1f} KB] Full text extraction not available. Install pypdf and pdf2image for PDF processing."
+    except Exception as e:
+        return f"Error accessing PDF: {str(e)}"
+
 def process_pdf(pdf_path):
     """
     Process a PDF file to extract text, using OCR if needed.
@@ -123,7 +174,7 @@ def process_pdf(pdf_path):
         str: Extracted text from the PDF.
     """
     if not PDF_AVAILABLE:
-        return "PDF processing not available. Install pypdf."
+        return extract_text_from_pdf_basic(pdf_path)
     
     try:
         # First try to extract text directly
@@ -136,29 +187,56 @@ def process_pdf(pdf_path):
                 text += page_text + "\n\n"
         
         # If no text was extracted and OCR is available, use OCR
-        if not text.strip() and TESSERACT_AVAILABLE:
-            # Convert PDF to images
-            images = pdf2image.convert_from_path(pdf_path)
-            
-            # Process each image with OCR
-            for i, img in enumerate(images):
-                # Convert PIL Image to numpy array
-                img_np = np.array(img)
+        if not text.strip() and TESSERACT_AVAILABLE and PDF_IMAGE_AVAILABLE and CV2_AVAILABLE:
+            try:
+                # Convert PDF to images
+                images = pdf2image.convert_from_path(pdf_path)
                 
-                # Convert to grayscale
-                gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-                
-                # Apply thresholding
-                _, threshold = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                
-                # Perform OCR
-                page_text = pytesseract.image_to_string(threshold)
-                text += f"Page {i+1}:\n{page_text}\n\n"
+                # Process each image with OCR
+                for i, img in enumerate(images):
+                    # Convert PIL Image to numpy array
+                    img_np = np.array(img)
+                    
+                    # Convert to grayscale
+                    gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+                    
+                    # Apply thresholding
+                    _, threshold = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                    
+                    # Perform OCR
+                    page_text = pytesseract.image_to_string(threshold)
+                    text += f"Page {i+1}:\n{page_text}\n\n"
+            except Exception as e:
+                # If PDF to image conversion fails, add a note
+                text += f"\n[Note: Could not perform OCR on this PDF: {str(e)}]"
+        
+        # If still no text, provide a message
+        if not text.strip():
+            num_pages = len(pdf.pages)
+            text = f"[PDF: {num_pages} pages] No extractable text found. Install poppler and tesseract for OCR functionality."
         
         return text
     except Exception as e:
         print(f"Error processing PDF {pdf_path}: {e}")
         return f"Error processing PDF: {str(e)}"
+
+def extract_text_from_docx_basic(docx_path):
+    """
+    Extract basic information about a DOCX file.
+    This is a fallback when DOCX processing is not available.
+    
+    Parameters:
+        docx_path (str): Path to the DOCX file.
+        
+    Returns:
+        str: Basic information about the DOCX.
+    """
+    try:
+        # Just verify the DOCX exists
+        file_size = os.path.getsize(docx_path) / 1024  # Size in KB
+        return f"[DOCX: {file_size:.1f} KB] Text extraction not available. Install docx2txt for DOCX processing."
+    except Exception as e:
+        return f"Error accessing DOCX: {str(e)}"
 
 def process_docx(docx_path):
     """
@@ -171,7 +249,7 @@ def process_docx(docx_path):
         str: Extracted text from the DOCX file.
     """
     if not DOCX_AVAILABLE:
-        return "DOCX processing not available. Install docx2txt."
+        return extract_text_from_docx_basic(docx_path)
     
     try:
         text = docx2txt.process(docx_path)
@@ -217,21 +295,16 @@ def process_attachment(attachment):
     extracted_text = ""
     
     if mime_type.startswith("image/"):
-        if TESSERACT_AVAILABLE:
-            extracted_text = process_image(file_path)
-        else:
-            extracted_text = "Image OCR not available. Install pytesseract and opencv-python-headless."
+        extracted_text = process_image(file_path)
     elif mime_type == "application/pdf":
-        if PDF_AVAILABLE:
-            extracted_text = process_pdf(file_path)
-        else:
-            extracted_text = "PDF processing not available. Install pypdf and pdf2image."
+        extracted_text = process_pdf(file_path)
     elif mime_type in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
                       "application/msword"]:
-        if DOCX_AVAILABLE:
-            extracted_text = process_docx(file_path)
-        else:
-            extracted_text = "DOCX processing not available. Install docx2txt."
+        extracted_text = process_docx(file_path)
+    else:
+        # For other file types, just note the type
+        file_size = os.path.getsize(file_path) / 1024  # Size in KB
+        extracted_text = f"[{mime_type}: {file_size:.1f} KB] No text extraction available for this file type."
     
     # Extract medical information
     medical_info = {}
@@ -242,7 +315,9 @@ def process_attachment(attachment):
     processed_data = {
         "extracted_text": extracted_text,
         "processed_at": datetime.now().isoformat(),
-        "medical_info": medical_info
+        "medical_info": medical_info,
+        "ocr_available": TESSERACT_AVAILABLE,
+        "pdf_processing_available": PDF_AVAILABLE and PDF_IMAGE_AVAILABLE
     }
     
     # Save processed data
@@ -739,3 +814,19 @@ def update_patient_info_from_events(events):
         updated_info["identifiers"] = identifiers
     
     return updated_info
+
+def get_ocr_status():
+    """
+    Get the status of OCR and PDF processing capabilities.
+    
+    Returns:
+        dict: Status information.
+    """
+    return {
+        "tesseract_available": TESSERACT_AVAILABLE,
+        "pdf_image_available": PDF_IMAGE_AVAILABLE,
+        "cv2_available": CV2_AVAILABLE,
+        "docx_available": DOCX_AVAILABLE,
+        "pdf_available": PDF_AVAILABLE,
+        "vector_db_available": VECTOR_DB_AVAILABLE
+    }
