@@ -23,6 +23,7 @@ import base64
 from PIL import Image
 import io
 from collections import defaultdict
+import uuid
 
 # Import our modules
 from enex_parser import get_all_events_from_directory, extract_diagnostic_journey
@@ -69,13 +70,20 @@ def get_file_content_as_base64(file_path):
         data = f.read()
     return base64.b64encode(data).decode()
 
-def display_attachment(attachment):
+def display_attachment(attachment, key_prefix=""):
     """
     Display an attachment based on its mime type.
+    
+    Parameters:
+        attachment (dict): Attachment information.
+        key_prefix (str): Prefix for unique keys.
     """
     file_path = attachment["file_path"]
     mime_type = attachment["mime_type"]
     file_name = attachment["file_name"]
+    
+    # Generate a unique key for this attachment
+    unique_key = f"{key_prefix}_{file_name}_{str(uuid.uuid4())}"
     
     if not os.path.exists(file_path):
         st.warning(f"File not found: {file_name}")
@@ -87,6 +95,14 @@ def display_attachment(attachment):
             st.image(image, caption=file_name)
         except Exception as e:
             st.error(f"Error displaying image: {e}")
+            with open(file_path, "rb") as file:
+                st.download_button(
+                    label=f"Download {file_name}",
+                    data=file,
+                    file_name=file_name,
+                    mime=mime_type,
+                    key=f"download_img_{unique_key}"
+                )
     
     elif mime_type == "application/pdf":
         # Display PDF using an iframe
@@ -98,21 +114,23 @@ def display_attachment(attachment):
             st.error(f"Error displaying PDF: {e}")
             # Provide a download link as fallback
             with open(file_path, "rb") as file:
-                btn = st.download_button(
+                st.download_button(
                     label=f"Download {file_name}",
                     data=file,
                     file_name=file_name,
-                    mime=mime_type
+                    mime=mime_type,
+                    key=f"download_pdf_{unique_key}"
                 )
     
     else:
         # For other file types, provide a download link
         with open(file_path, "rb") as file:
-            btn = st.download_button(
+            st.download_button(
                 label=f"Download {file_name}",
                 data=file,
                 file_name=file_name,
-                mime=mime_type
+                mime=mime_type,
+                key=f"download_other_{unique_key}"
             )
 
 def display_timeline(events, title="Medical Timeline"):
@@ -177,7 +195,7 @@ def display_timeline(events, title="Medical Timeline"):
     )
     
     # Display event details
-    for event in events:
+    for i, event in enumerate(events):
         st.markdown(f"<a id='{event['id']}'></a>", unsafe_allow_html=True)
         with st.expander(f"{event['date']} - {event['title']}"):
             st.markdown(f"**Date:** {event['date']}")
@@ -215,9 +233,9 @@ def display_timeline(events, title="Medical Timeline"):
             # Display attachments
             if "attachments" in event and event["attachments"]:
                 st.markdown("### Attachments")
-                for attachment in event["attachments"]:
+                for j, attachment in enumerate(event["attachments"]):
                     st.markdown(f"**{attachment['file_name']}**")
-                    display_attachment(attachment)
+                    display_attachment(attachment, key_prefix=f"event_{i}_attachment_{j}")
                     
                     # Display extracted text if available
                     if "extracted_text" in attachment and attachment["extracted_text"]:
@@ -362,7 +380,7 @@ def display_search_interface():
                 # If it's an attachment, display it
                 if result["type"] == "attachment":
                     st.markdown("### Attachment")
-                    display_attachment(result["attachment"])
+                    display_attachment(result["attachment"], key_prefix=f"search_result_{i}")
 
 def display_diagnostic_journey():
     """
@@ -461,7 +479,7 @@ def display_medical_practitioners():
     sorted_personnel = sorted(all_personnel.items())
     
     # Display each practitioner
-    for name, events in sorted_personnel:
+    for i, (name, events) in enumerate(sorted_personnel):
         with st.expander(f"{name} ({events[0]['person_type']})"):
             st.markdown(f"**Specialty:** {events[0]['person_specialty']}")
             st.markdown(f"**Number of Interactions:** {len(events)}")
@@ -488,57 +506,21 @@ def display_medical_practitioners():
                         "event_title": e["event_title"],
                         "file_name": attachment["file_name"],
                         "file_path": attachment["file_path"],
-                        "mime_type": attachment["mime_type"]
+                        "mime_type": attachment["mime_type"],
+                        "attachment": attachment
                     })
             
             if all_attachments:
                 st.markdown("### Related Documents")
                 
-                for attachment in all_attachments:
-                    st.markdown(f"**{attachment['event_date']} - {attachment['file_name']}**")
+                for j, attachment_info in enumerate(all_attachments):
+                    st.markdown(f"**{attachment_info['event_date']} - {attachment_info['file_name']}**")
                     
-                    # Display the attachment
-                    file_path = attachment["file_path"]
-                    mime_type = attachment["mime_type"]
-                    
-                    if os.path.exists(file_path):
-                        if mime_type.startswith("image/"):
-                            try:
-                                image = Image.open(file_path)
-                                st.image(image, caption=attachment["file_name"])
-                            except Exception as e:
-                                st.error(f"Error displaying image: {e}")
-                                with open(file_path, "rb") as file:
-                                    st.download_button(
-                                        label=f"Download {attachment['file_name']}",
-                                        data=file,
-                                        file_name=attachment["file_name"],
-                                        mime=mime_type
-                                    )
-                        elif mime_type == "application/pdf":
-                            try:
-                                base64_pdf = get_file_content_as_base64(file_path)
-                                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
-                                st.markdown(pdf_display, unsafe_allow_html=True)
-                            except Exception as e:
-                                st.error(f"Error displaying PDF: {e}")
-                                with open(file_path, "rb") as file:
-                                    st.download_button(
-                                        label=f"Download {attachment['file_name']}",
-                                        data=file,
-                                        file_name=attachment["file_name"],
-                                        mime=mime_type
-                                    )
-                        else:
-                            with open(file_path, "rb") as file:
-                                st.download_button(
-                                    label=f"Download {attachment['file_name']}",
-                                    data=file,
-                                    file_name=attachment["file_name"],
-                                    mime=mime_type
-                                )
-                    else:
-                        st.warning(f"File not found: {attachment['file_name']}")
+                    # Display the attachment with a unique key
+                    display_attachment(
+                        attachment_info["attachment"], 
+                        key_prefix=f"practitioner_{i}_attachment_{j}"
+                    )
 
 def display_medical_facilities():
     """
@@ -570,7 +552,7 @@ def display_medical_facilities():
     sorted_facilities = sorted(all_facilities.items())
     
     # Display each facility
-    for name, events in sorted_facilities:
+    for i, (name, events) in enumerate(sorted_facilities):
         with st.expander(f"{name} ({events[0]['facility_type']})"):
             st.markdown(f"**Specialty:** {events[0]['facility_specialty']}")
             st.markdown(f"**Number of Interactions:** {len(events)}")
@@ -597,57 +579,21 @@ def display_medical_facilities():
                         "event_title": e["event_title"],
                         "file_name": attachment["file_name"],
                         "file_path": attachment["file_path"],
-                        "mime_type": attachment["mime_type"]
+                        "mime_type": attachment["mime_type"],
+                        "attachment": attachment
                     })
             
             if all_attachments:
                 st.markdown("### Related Documents")
                 
-                for attachment in all_attachments:
-                    st.markdown(f"**{attachment['event_date']} - {attachment['file_name']}**")
+                for j, attachment_info in enumerate(all_attachments):
+                    st.markdown(f"**{attachment_info['event_date']} - {attachment_info['file_name']}**")
                     
-                    # Display the attachment
-                    file_path = attachment["file_path"]
-                    mime_type = attachment["mime_type"]
-                    
-                    if os.path.exists(file_path):
-                        if mime_type.startswith("image/"):
-                            try:
-                                image = Image.open(file_path)
-                                st.image(image, caption=attachment["file_name"])
-                            except Exception as e:
-                                st.error(f"Error displaying image: {e}")
-                                with open(file_path, "rb") as file:
-                                    st.download_button(
-                                        label=f"Download {attachment['file_name']}",
-                                        data=file,
-                                        file_name=attachment["file_name"],
-                                        mime=mime_type
-                                    )
-                        elif mime_type == "application/pdf":
-                            try:
-                                base64_pdf = get_file_content_as_base64(file_path)
-                                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
-                                st.markdown(pdf_display, unsafe_allow_html=True)
-                            except Exception as e:
-                                st.error(f"Error displaying PDF: {e}")
-                                with open(file_path, "rb") as file:
-                                    st.download_button(
-                                        label=f"Download {attachment['file_name']}",
-                                        data=file,
-                                        file_name=attachment["file_name"],
-                                        mime=mime_type
-                                    )
-                        else:
-                            with open(file_path, "rb") as file:
-                                st.download_button(
-                                    label=f"Download {attachment['file_name']}",
-                                    data=file,
-                                    file_name=attachment["file_name"],
-                                    mime=mime_type
-                                )
-                    else:
-                        st.warning(f"File not found: {attachment['file_name']}")
+                    # Display the attachment with a unique key
+                    display_attachment(
+                        attachment_info["attachment"], 
+                        key_prefix=f"facility_{i}_attachment_{j}"
+                    )
 
 def main():
     """
