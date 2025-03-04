@@ -8,6 +8,8 @@ A Streamlit application that:
 4. Includes patient information.
 5. Handles attachments and Evernote links.
 6. Provides semantic search across all content.
+7. Supports document addition, editing, and merging curation features.
+8. Allows category management.
 """
 
 import streamlit as st
@@ -25,10 +27,13 @@ import uuid
 
 # Import our modules
 import knowledge_store_reader as ks
+import knowledge_store_manager as ksm
 import improved_phb_details as phb_details
 import patient_info
 import evernote_utils
 import attachment_processor
+import upload_handler
+from streamlit_components.streamlit_curation import display_curation_dashboard
 
 # Set page config
 st.set_page_config(
@@ -751,11 +756,11 @@ def main():
     page = st.sidebar.radio(
         "Go to",
         ["Timeline", "Diagnostic Journey", "Medical Practitioners", "Medical Facilities", 
-         "PHB Categories", "PHB Supports", "Patient Info", "Search", "System Status"]
+         "PHB Categories", "PHB Supports", "Patient Info", "Search", "Curation Dashboard", "System Status"]
     )
     
     # Check if knowledge store is available
-    if not ks.is_knowledge_store_available() and page != "System Status":
+    if not ks.is_knowledge_store_available() and page not in ["System Status", "Curation Dashboard"]:
         st.warning("""
         Knowledge store not found. Please run the indexing script to create the knowledge store:
         
@@ -792,6 +797,9 @@ def main():
     
     elif page == "Search":
         display_search_interface()
+    
+    elif page == "Curation Dashboard":
+        display_curation_dashboard()
     
     elif page == "System Status":
         display_system_status()
