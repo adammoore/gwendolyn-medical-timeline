@@ -34,6 +34,7 @@ import evernote_utils
 import attachment_processor
 import upload_handler
 from streamlit_components.streamlit_curation import display_curation_dashboard
+from streamlit_components.streamlit_entity_management import display_entity_management_dashboard
 
 # Set page config
 st.set_page_config(
@@ -756,7 +757,8 @@ def main():
     page = st.sidebar.radio(
         "Go to",
         ["Timeline", "Diagnostic Journey", "Medical Practitioners", "Medical Facilities", 
-         "PHB Categories", "PHB Supports", "Patient Info", "Search", "Curation Dashboard", "System Status"]
+         "PHB Categories", "PHB Supports", "Patient Info", "Search", "Curation Dashboard", 
+         "Entity Management", "System Status"]
     )
     
     # Check if knowledge store is available
@@ -800,6 +802,9 @@ def main():
     
     elif page == "Curation Dashboard":
         display_curation_dashboard()
+    
+    elif page == "Entity Management":
+        display_entity_management_dashboard()
     
     elif page == "System Status":
         display_system_status()

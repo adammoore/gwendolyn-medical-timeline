@@ -310,9 +310,61 @@ def update_phb_info():
     
     print("PHB information updated.")
 
+def run_indexing(enex_only=False, docs_only=False, update_phb_only=False):
+    """
+    Run the indexing process programmatically.
+    
+    Parameters:
+        enex_only (bool): Only index ENEX files.
+        docs_only (bool): Only index external documents.
+        update_phb_only (bool): Only update PHB information.
+        
+    Returns:
+        bool: True if successful, False otherwise.
+    """
+    try:
+        # Check OCR status
+        ocr_status = attachment_processor.get_ocr_status()
+        print("OCR Status:")
+        print(f"  Tesseract available: {ocr_status['tesseract_available']}")
+        print(f"  PDF to Image available: {ocr_status['pdf_image_available']}")
+        print(f"  OpenCV available: {ocr_status['cv2_available']}")
+        print(f"  DOCX processing available: {ocr_status['docx_available']}")
+        print(f"  PDF processing available: {ocr_status['pdf_available']}")
+        print(f"  Vector DB available: {ocr_status['vector_db_available']}")
+        print()
+        
+        notes = []
+        external_docs = []
+        
+        if update_phb_only:
+            update_phb_info()
+            return True
+        
+        if not docs_only:
+            notes = index_enex_files()
+        
+        if not enex_only:
+            external_docs = index_external_documents()
+        
+        processed_attachments, processed_external_docs = process_all_documents(notes, external_docs)
+        events = create_events(notes, processed_attachments)
+        create_vector_store(events, processed_external_docs)
+        update_patient_info(events)
+        
+        print("Indexing complete!")
+        print(f"Indexed {len(notes)} notes, {len(external_docs)} external documents, and created {len(events)} events.")
+        print(f"Knowledge store created at: {KNOWLEDGE_STORE_DIR}")
+        print(f"Vector store created at: {VECTOR_DB_DIR}")
+        
+        return True
+    except Exception as e:
+        print(f"Error during indexing: {str(e)}")
+        return False
+
 def main():
     """
-    Main function to run the indexing script.
+    Main function to run the indexing script from command line.
     """
     parser = argparse.ArgumentParser(description="Index documents for Gwendolyn's Medical Timeline")
     parser.add_argument("--enex-only", action="store_true", help="Only index ENEX files")
@@ -320,39 +372,11 @@ def main():
     parser.add_argument("--update-phb", action="store_true", help="Update PHB information")
     args = parser.parse_args()
     
-    # Check OCR status
-    ocr_status = attachment_processor.get_ocr_status()
-    print("OCR Status:")
-    print(f"  Tesseract available: {ocr_status['tesseract_available']}")
-    print(f"  PDF to Image available: {ocr_status['pdf_image_available']}")
-    print(f"  OpenCV available: {ocr_status['cv2_available']}")
-    print(f"  DOCX processing available: {ocr_status['docx_available']}")
-    print(f"  PDF processing available: {ocr_status['pdf_available']}")
-    print(f"  Vector DB available: {ocr_status['vector_db_available']}")
-    print()
-    
-    notes = []
-    external_docs = []
-    
-    if args.update_phb:
-        update_phb_info()
-        return
-    
-    if not args.docs_only:
-        notes = index_enex_files()
-    
-    if not args.enex_only:
-        external_docs = index_external_documents()
-    
-    processed_attachments, processed_external_docs = process_all_documents(notes, external_docs)
-    events = create_events(notes, processed_attachments)
-    create_vector_store(events, processed_external_docs)
-    update_patient_info(events)
-    
-    print("Indexing complete!")
-    print(f"Indexed {len(notes)} notes, {len(external_docs)} external documents, and created {len(events)} events.")
-    print(f"Knowledge store created at: {KNOWLEDGE_STORE_DIR}")
-    print(f"Vector store created at: {VECTOR_DB_DIR}")
+    run_indexing(
+        enex_only=args.enex_only,
+        docs_only=args.docs_only,
+        update_phb_only=args.update_phb
+    )
 
 if __name__ == "__main__":
     main()

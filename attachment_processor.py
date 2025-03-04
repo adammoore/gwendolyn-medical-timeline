@@ -397,14 +397,25 @@ def extract_personnel(text):
     Returns:
         list: List of personnel dictionaries.
     """
-    # Define patterns for different types of personnel
-    doctor_pattern = r'(?:Dr\.?|Doctor|Prof\.?|Professor|Mr\.?|Mrs\.?|Ms\.?|Miss|Consultant|Specialist)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)'
-    nurse_pattern = r'(?:Nurse|Sister|Matron|RN|Staff Nurse)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)'
-    therapist_pattern = r'(?:Therapist|Physiotherapist|Physio|OT|Occupational Therapist|Speech|SALT|SLT)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)'
+    # Define patterns for different types of personnel - improved to catch more variations
+    doctor_pattern = r'(?:Dr\.?|Doctor|Prof\.?|Professor|Mr\.?|Mrs\.?|Ms\.?|Miss|Consultant|Specialist|Surgeon|Physician)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?(?:\s+[A-Z][a-z]+)?)'
+    nurse_pattern = r'(?:Nurse|Sister|Matron|RN|Staff Nurse|Nursing)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?(?:\s+[A-Z][a-z]+)?)'
+    therapist_pattern = r'(?:Therapist|Physiotherapist|Physio|OT|Occupational Therapist|Speech|SALT|SLT|Psychologist)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?(?:\s+[A-Z][a-z]+)?)'
     
+    # Find all matches
     doctors = re.findall(doctor_pattern, text)
     nurses = re.findall(nurse_pattern, text)
     therapists = re.findall(therapist_pattern, text)
+    
+    # Normalize names to avoid duplicates with different formats
+    doctors = [normalize_name(name) for name in doctors]
+    nurses = [normalize_name(name) for name in nurses]
+    therapists = [normalize_name(name) for name in therapists]
+    
+    # Remove duplicates
+    doctors = list(set(doctors))
+    nurses = list(set(nurses))
+    therapists = list(set(therapists))
     
     personnel = []
     
@@ -447,6 +458,37 @@ def extract_personnel(text):
     
     return personnel
 
+# Helper function to normalize names
+def normalize_name(name):
+    """
+    Normalize a name by removing extra spaces, titles, etc.
+    
+    Parameters:
+        name (str): The name to normalize.
+        
+    Returns:
+        str: The normalized name.
+    """
+    if not name:
+        return ""
+    
+    # Convert to lowercase
+    name = name.lower()
+    
+    # Remove titles
+    titles = ["dr", "dr.", "doctor", "prof", "prof.", "professor", "mr", "mr.", "mrs", "mrs.", "ms", "ms.", "miss"]
+    for title in titles:
+        if name.startswith(title + " "):
+            name = name[len(title) + 1:]
+    
+    # Remove extra spaces
+    name = re.sub(r'\s+', ' ', name).strip()
+    
+    # Capitalize first letter of each word
+    name = name.title()
+    
+    return name
+
 def extract_facilities(text):
     """
     Extract and categorize medical facilities from text.
@@ -457,12 +499,21 @@ def extract_facilities(text):
     Returns:
         list: List of facility dictionaries.
     """
-    # Define patterns for different types of facilities
-    hospital_pattern = r'(?:Hospital|Medical Center|Clinic|Centre|Center|NHS Trust|Foundation Trust|Children\'s|Paediatric|Pediatric)(?:[:\s]+)([A-Za-z\s\-\']+)'
-    department_pattern = r'(?:Department|Dept|Ward|Unit|Clinic|Service|Team)(?:[:\s]+)([A-Za-z\s\-\']+)'
+    # Define patterns for different types of facilities - improved to catch more variations
+    hospital_pattern = r'(?:Hospital|Medical Center|Medical Centre|Clinic|Centre|Center|NHS Trust|Foundation Trust|Children\'s|Paediatric|Pediatric)(?:[:\s]+)([A-Za-z\s\-\']+)'
+    department_pattern = r'(?:Department|Dept|Ward|Unit|Clinic|Service|Team|Division)(?:[:\s]+)([A-Za-z\s\-\']+)'
     
+    # Find all matches
     hospitals = re.findall(hospital_pattern, text)
     departments = re.findall(department_pattern, text)
+    
+    # Clean up facility names
+    hospitals = [name.strip() for name in hospitals if len(name.strip()) > 2]
+    departments = [name.strip() for name in departments if len(name.strip()) > 2]
+    
+    # Remove duplicates
+    hospitals = list(set(hospitals))
+    departments = list(set(departments))
     
     facilities = []
     
