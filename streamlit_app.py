@@ -674,36 +674,40 @@ def display_system_status():
     st.subheader("Knowledge Store Status")
     
     if ks.is_knowledge_store_available():
-        stats = ks.get_knowledge_store_stats()
-        
-        # Display stats in a table
-        stats_data = {
-            "Metric": [
-                "Events", 
-                "Notes", 
-                "External Documents", 
-                "Attachments", 
-                "Personnel", 
-                "Facilities",
-                "Specialties",
-                "Date Range",
-                "Last Updated"
-            ],
-            "Value": [
-                stats["events_count"],
-                stats["notes_count"],
-                stats["external_docs_count"],
-                stats["attachment_count"],
-                stats["personnel_count"],
-                stats["facilities_count"],
-                stats["specialties_count"],
-                stats["date_range"],
-                stats["last_updated"]
-            ]
-        }
-        
-        stats_df = pd.DataFrame(stats_data)
-        st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        try:
+            stats = ks.get_knowledge_store_stats()
+            
+            # Display stats in a table
+            stats_data = {
+                "Metric": [
+                    "Events", 
+                    "Notes", 
+                    "External Documents", 
+                    "Attachments", 
+                    "Personnel", 
+                    "Facilities",
+                    "Specialties",
+                    "Date Range",
+                    "Last Updated"
+                ],
+                "Value": [
+                    str(stats["events_count"]),
+                    str(stats["notes_count"]),
+                    str(stats["external_docs_count"]),
+                    str(stats["attachment_count"]),
+                    str(stats["personnel_count"]),
+                    str(stats["facilities_count"]),
+                    str(stats["specialties_count"]),
+                    str(stats["date_range"]),
+                    str(stats["last_updated"])
+                ]
+            }
+            
+            stats_df = pd.DataFrame(stats_data)
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        except Exception as e:
+            st.error(f"Error displaying knowledge store stats: {str(e)}")
+            st.info("Knowledge store is available but there was an error displaying the statistics.")
     else:
         st.warning("""
         Knowledge store not found. Please run the indexing script to create the knowledge store:

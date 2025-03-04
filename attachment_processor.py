@@ -58,7 +58,7 @@ except ImportError:
 # Set up vector database
 try:
     from langchain_community.vectorstores import FAISS
-    from langchain_community.embeddings import HuggingFaceEmbeddings
+    from langchain_huggingface import HuggingFaceEmbeddings
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     VECTOR_DB_AVAILABLE = True
 except ImportError:
