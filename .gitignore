@@ -34,13 +34,12 @@ ENV/
 # PyCharm
 .idea/
 
-# Processed data
+# Large files and data
+*.enex
+attachments/
 processed_attachments/
 vector_db/
 
 # OS specific
 .DS_Store
 Thumbs.db
-
-# Large files
-*.enex

@@ -10,6 +10,8 @@ This application processes Evernote export files (.enex) containing medical reco
 - **Attachment Processing**: OCR for images and PDFs, text extraction from documents
 - **Semantic Search**: Search across all content including attachments
 - **Patient Information**: View comprehensive patient details
+- **Medical Practitioners View**: See all medical practitioners and their associated documents
+- **Medical Facilities View**: See all medical facilities and their associated documents
 
 ## Installation
 
@@ -25,7 +27,23 @@ This application processes Evernote export files (.enex) containing medical reco
    pip install -r requirements.txt
    ```
 
-3. Place your Evernote export (.enex) files in the project directory.
+3. Install system dependencies:
+   - **Tesseract OCR**:
+     - macOS: `brew install tesseract`
+     - Ubuntu/Debian: `apt-get install tesseract-ocr`
+     - Windows: Download from [GitHub](https://github.com/UB-Mannheim/tesseract/wiki)
+   
+   - **Poppler** (for PDF processing):
+     - macOS: `brew install poppler`
+     - Ubuntu/Debian: `apt-get install poppler-utils`
+     - Windows: Download from [poppler for Windows](http://blog.alivate.com.au/poppler-windows/)
+
+4. Place your Evernote export (.enex) files in the project directory.
+
+5. Run the indexing script to create the knowledge store:
+   ```
+   python index_documents.py
+   ```
 
 ## Usage
 
@@ -37,59 +55,26 @@ streamlit run streamlit_app.py
 
 This will start the Streamlit server and open the application in your web browser.
 
-### Running the Flask App (Alternative)
-
-```
-python app.py
-```
-
-This will start the Flask server on http://localhost:5000.
-
-## Requirements
-
-- Python 3.9+
-- Tesseract OCR (for image processing)
-- Poppler (for PDF processing)
-
-### Installing Tesseract OCR
-
-- **macOS**: `brew install tesseract`
-- **Ubuntu/Debian**: `apt-get install tesseract-ocr`
-- **Windows**: Download and install from [GitHub](https://github.com/UB-Mannheim/tesseract/wiki)
-
-### Installing Poppler
-
-- **macOS**: `brew install poppler`
-- **Ubuntu/Debian**: `apt-get install poppler-utils`
-- **Windows**: Download and install from [poppler for Windows](http://blog.alivate.com.au/poppler-windows/)
-
 ## Project Structure
 
-- `app.py`: Flask application
 - `streamlit_app.py`: Streamlit application
-- `enex_parser.py`: Functions to parse Evernote export files
+- `index_documents.py`: Script to index documents and create the knowledge store
+- `knowledge_store_reader.py`: Module to read data from the knowledge store
 - `attachment_processor.py`: OCR and text extraction for attachments
 - `improved_phb_details.py`: PHB categories and supports
 - `patient_info.py`: Patient information
 - `evernote_utils.py`: Utilities for working with Evernote notes
-- `attachments/`: Directory for extracted attachments
-- `processed_attachments/`: Directory for processed attachment content
-- `vector_db/`: Directory for vector database
+- `knowledge_store/`: Directory for the knowledge store
+- `docs/`: Directory for external documents
 
 ## Deployment
 
-For sharing with family and medical professionals, you can deploy this application using:
+This application can be deployed using Streamlit Cloud:
 
-1. **Streamlit Cloud**: https://streamlit.io/cloud
-2. **Modal**: https://modal.com/
-3. **Heroku**: https://heroku.com/
+1. Push the repository to GitHub
+2. Connect to Streamlit Cloud: https://streamlit.io/cloud
+3. Point to the GitHub repository and the `streamlit_app.py` file
 
 ## License
 
 This project is private and intended for personal use by the Vials Moore family and authorized medical professionals.
-
-## Acknowledgements
-
-- Streamlit for the interactive web framework
-- Langchain for vector search capabilities
-- Tesseract OCR for image text extraction
