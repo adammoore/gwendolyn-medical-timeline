@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gwendolyn Vials Moore - Diagnostic Journey</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background-color: #343a40;
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.2rem;
+            text-align: center;
+        }
+        
+        .header p {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+        
+        .patient-info {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .patient-info h3 {
+            margin-top: 0;
+            color: #343a40;
+            font-size: 1.4rem;
+        }
+        
+        .patient-info p {
+            margin-bottom: 5px;
+        }
+        
+        .journey-timeline {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .journey-timeline::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            background-color: #343a40;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            margin-left: -3px;
+        }
+        
+        .journey-container {
+            padding: 10px 40px;
+            position: relative;
+            background-color: inherit;
+            width: 50%;
+        }
+        
+        .left {
+            left: 0;
+        }
+        
+        .right {
+            left: 50%;
+        }
+        
+        .left::before {
+            content: " ";
+            height: 0;
+            position: absolute;
+            top: 22px;
+            width: 0;
+            z-index: 1;
+            right: 30px;
+            border: medium solid #fff;
+            border-width: 10px 0 10px 10px;
+            border-color: transparent transparent transparent #fff;
+        }
+        
+        .right::before {
+            content: " ";
+            height: 0;
+            position: absolute;
+            top: 22px;
+            width: 0;
+            z-index: 1;
+            left: 30px;
+            border: medium solid #fff;
+            border-width: 10px 10px 10px 0;
+            border-color: transparent #fff transparent transparent;
+        }
+        
+        .right::after {
+            left: -13px;
+        }
+        
+        .journey-content {
+            padding: 20px;
+            background-color: white;
+            position: relative;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .journey-content h2 {
+            color: #343a40;
+            margin-top: 0;
+            font-size: 1.5rem;
+        }
+        
+        .journey-content .date {
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        .journey-content .age {
+            color: #6c757d;
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+        
+        .journey-content .specialty {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        
+        .new-specialty {
+            display: inline-block;
+            padding: 3px 8px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            background-color: #28a745;
+            color: white;
+            font-size: 0.85rem;
+        }
+        
+        .new-diagnosis {
+            display: inline-block;
+            padding: 3px 8px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            background-color: #dc3545;
+            color: white;
+            font-size: 0.85rem;
+        }
+        
+        .specialties-list {
+            margin-top: 15px;
+        }
+        
+        .specialties-list h4 {
+            font-size: 1.1rem;
+            color: #343a40;
+            margin-bottom: 10px;
+        }
+        
+        .specialty-item {
+            display: inline-block;
+            padding: 5px 10px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            background-color: #e9ecef;
+            font-size: 0.9rem;
+        }
+        
+        .diagnoses-list {
+            margin-top: 15px;
+        }
+        
+        .diagnoses-list h4 {
+            font-size: 1.1rem;
+            color: #343a40;
+            margin-bottom: 10px;
+        }
+        
+        .diagnosis-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-left: 3px solid #dc3545;
+            background-color: #f8f9fa;
+        }
+        
+        .view-details, .open-evernote, .open-web-link {
+            display: inline-block;
+            margin-top: 10px;
+            margin-right: 10px;
+            padding: 5px 10px;
+            background-color: #343a40;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+        
+        .view-details:hover, .open-evernote:hover, .open-web-link:hover {
+            background-color: #23272b;
+            color: white;
+        }
+        
+        .navigation {
+            margin-bottom: 20px;
+        }
+        
+        .navigation a {
+            display: inline-block;
+            margin-right: 10px;
+            padding: 8px 15px;
+            background-color: #343a40;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+        
+        .navigation a:hover {
+            background-color: #23272b;
+            color: white;
+        }
+        
+        @media screen and (max-width: 768px) {
+            .journey-timeline::after {
+                left: 31px;
+            }
+            
+            .journey-container {
+                width: 100%;
+                padding-left: 70px;
+                padding-right: 25px;
+            }
+            
+            .journey-container::before {
+                left: 60px;
+                border: medium solid white;
+                border-width: 10px 10px 10px 0;
+                border-color: transparent white transparent transparent;
+            }
+            
+            .left::after, .right::after {
+                left: 18px;
+            }
+            
+            .right {
+                left: 0%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Gwendolyn Vials Moore - Diagnostic Journey</h1>
+            <p>Cumulative Medical History Timeline</p>
+        </div>
+        
+        <div class="navigation">
+            <a href="{{ url_for('index') }}">← Back to Main Timeline</a>
+            <a href="{{ url_for('patient') }}">View Patient Information</a>
+        </div>
+        
+        <div class="patient-info">
+            <h3>Patient Information</h3>
+            <p><strong>Name:</strong> {{ patient_info.name }}</p>
+            <p><strong>Date of Birth:</strong> {{ patient_info.dob }}</p>
+            <p><strong>Birth Location:</strong> {{ patient_info.birth_location }}</p>
+        </div>
+        
+        <div class="journey-timeline">
+            {% for event in journey %}
+            <div class="journey-container {% if loop.index is odd %}left{% else %}right{% endif %}">
+                <div class="journey-content">
+                    <h2>{{ event.title }}</h2>
+                    <p class="date">Date: {{ event.date }}</p>
+                    <p class="age">Age: {{ event.age }}</p>
+                    
+                    <div>
+                        {% if event.new_specialty %}
+                        <span class="new-specialty">New Specialty</span>
+                        {% endif %}
+                        
+                        {% if event.new_diagnosis %}
+                        <span class="new-diagnosis">New Diagnosis</span>
+                        {% endif %}
+                    </div>
+                    
+                    <p class="specialty">Specialty: {{ event.specialty }}</p>
+                    
+                    <div class="specialties-list">
+                        <h4>Current Medical Specialties:</h4>
+                        {% for specialty in event.current_specialties %}
+                        <span class="specialty-item">{{ specialty }}</span>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if event.diagnoses %}
+                    <div class="diagnoses-list">
+                        <h4>Diagnoses:</h4>
+                        {% for diagnosis in event.diagnoses %}
+                        <div class="diagnosis-item">{{ diagnosis.content }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <a href="{{ url_for('event_detail', event_id=event.id) }}" class="view-details">View Full Details</a>
+                    
+                    {% if event.evernote_links %}
+                        {% if event.evernote_links.web_share_link %}
+                        <a href="{{ event.evernote_links.web_share_link }}" target="_blank" class="open-web-link">Open in Evernote Web</a>
+                        {% endif %}
+                        <a href="#" class="open-evernote" data-event-id="{{ event.id }}">Open in Evernote App</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Handle opening events in Evernote
+        document.querySelectorAll('.open-evernote').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const eventId = this.getAttribute('data-event-id');
+                
+                fetch(`/open_evernote/${eventId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.success) {
+                            alert('Error opening Evernote: ' + (data.message || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error opening Evernote');
+                    });
+            });
+        });
+    </script>
+</body>
+</html>

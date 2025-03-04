@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ event.title }} - Medical Event Detail</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        :root {
+            --severe-color: rgba(255, 0, 0, 0.7);
+            --high-color: rgba(255, 165, 0, 0.7);
+            --moderate-color: rgba(255, 255, 0, 0.7);
+            --unknown-color: rgba(128, 128, 128, 0.7);
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background-color: #343a40;
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.2rem;
+            text-align: center;
+        }
+        
+        .header p {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+        
+        .event-card {
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .event-header {
+            border-bottom: 2px solid #343a40;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .event-header h2 {
+            margin: 0;
+            color: #343a40;
+        }
+        
+        .event-header .date {
+            color: #6c757d;
+            font-style: italic;
+            margin-top: 5px;
+        }
+        
+        .event-header .age {
+            color: #6c757d;
+            font-style: italic;
+            margin-top: 5px;
+        }
+        
+        .event-header .source {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .event-section {
+            margin-bottom: 20px;
+        }
+        
+        .event-section h3 {
+            color: #343a40;
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .phb-category {
+            display: inline-block;
+            padding: 5px 10px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            border-radius: 3px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        
+        .severity-SEVERE {
+            background-color: var(--severe-color);
+            color: white;
+        }
+        
+        .severity-HIGH {
+            background-color: var(--high-color);
+            color: white;
+        }
+        
+        .severity-MODERATE {
+            background-color: var(--moderate-color);
+            color: black;
+        }
+        
+        .severity-UNKNOWN {
+            background-color: var(--unknown-color);
+            color: white;
+        }
+        
+        .phb-support {
+            display: inline-block;
+            padding: 5px 10px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            border-radius: 3px;
+            background-color: #4e73df;
+            color: white;
+            font-size: 0.9rem;
+        }
+        
+        .phb-detail-card {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 10px;
+            margin-bottom: 15px;
+            border-left: 5px solid #343a40;
+        }
+        
+        .phb-detail-card h4 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: #343a40;
+        }
+        
+        .phb-detail-card p {
+            margin-bottom: 10px;
+        }
+        
+        .phb-detail-card ul {
+            padding-left: 20px;
+            margin-bottom: 0;
+        }
+        
+        .personnel-card, .facility-card {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 5px solid #6c757d;
+        }
+        
+        .personnel-card h4, .facility-card h4 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: #343a40;
+        }
+        
+        .event-item {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 5px solid #6c757d;
+        }
+        
+        .event-item .event-type {
+            font-weight: bold;
+            color: #343a40;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .content-section {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .back-button, .open-evernote, .open-web-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            margin-right: 10px;
+            padding: 8px 15px;
+            background-color: #343a40;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+        
+        .back-button:hover, .open-evernote:hover, .open-web-link:hover {
+            background-color: #23272b;
+            color: white;
+        }
+        
+        .tags {
+            margin-top: 10px;
+        }
+        
+        .tag {
+            display: inline-block;
+            padding: 3px 8px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            background-color: #e9ecef;
+            font-size: 0.85rem;
+        }
+        
+        .navigation {
+            margin-bottom: 20px;
+        }
+        
+        .navigation a {
+            display: inline-block;
+            margin-right: 10px;
+            padding: 8px 15px;
+            background-color: #343a40;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+        
+        .navigation a:hover {
+            background-color: #23272b;
+            color: white;
+        }
+        
+        .attachments-section {
+            margin-top: 20px;
+        }
+        
+        .attachment-card {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 5px solid #28a745;
+            display: flex;
+            align-items: center;
+        }
+        
+        .attachment-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+            color: #343a40;
+        }
+        
+        .attachment-details {
+            flex-grow: 1;
+        }
+        
+        .attachment-details h4 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: #343a40;
+        }
+        
+        .attachment-details p {
+            margin: 5px 0 0 0;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .attachment-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .attachment-actions a {
+            padding: 5px 10px;
+            background-color: #343a40;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+        
+        .attachment-actions a:hover {
+            background-color: #23272b;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Medical Event Detail</h1>
+            <p>Gwendolyn Vials Moore - PHB-Integrated Medical History</p>
+        </div>
+        
+        <div class="navigation">
+            <a href="{{ url_for('index') }}">← Back to Timeline</a>
+            <a href="{{ url_for('diagnostic_journey') }}">View Diagnostic Journey</a>
+            <a href="{{ url_for('patient') }}">View Patient Information</a>
+        </div>
+        
+        <div class="event-card">
+            <div class="event-header">
+                <h2>{{ event.title }}</h2>
+                <div class="date">Date: {{ event.date }}</div>
+                <div class="age">Age: {{ event.age }}</div>
+                <div class="source">Source: {{ event.source_file }}</div>
+                {% if event.tags %}
+                <div class="tags">
+                    Tags: 
+                    {% for tag in event.tags %}
+                    <span class="tag">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="event-section">
+                        <h3>Medical Specialty</h3>
+                        <p>{{ event.specialty }} (Confidence: {{ event.specialty_confidence }}%)</p>
+                    </div>
+                    
+                    {% if event.phb_categories %}
+                    <div class="event-section">
+                        <h3>PHB Categories</h3>
+                        {% for category in event.phb_categories %}
+                        <div>
+                            <span class="phb-category severity-{{ category.severity }}">
+                                {{ category.category }} ({{ category.severity }})
+                            </span>
+                            <span class="confidence">(Confidence: {{ category.confidence }}%)</span>
+                            
+                            <div class="phb-detail-card" style="border-left-color: 
+                                 {% if category.severity == 'SEVERE' %}var(--severe-color)
+                                 {% elif category.severity == 'HIGH' %}var(--high-color)
+                                 {% elif category.severity == 'MODERATE' %}var(--moderate-color)
+                                 {% else %}var(--unknown-color){% endif %}">
+                                <h4>{{ category.category }} Details</h4>
+                                <p><strong>Description:</strong> {{ category.description }}</p>
+                                <p><strong>Matched Keywords:</strong> {{ category.matched_keywords|join(', ') }}</p>
+                                <p><strong>Details from PHB:</strong></p>
+                                <ul>
+                                    {% for detail in phb_categories[category.category].details %}
+                                    <li>{{ detail }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if event.phb_supports %}
+                    <div class="event-section">
+                        <h3>PHB Supports</h3>
+                        {% for support in event.phb_supports %}
+                        <div>
+                            <span class="phb-support">{{ support.support }}</span>
+                            <span class="confidence">(Confidence: {{ support.confidence }}%)</span>
+                            
+                            <div class="phb-detail-card" style="border-left-color: #4e73df">
+                                <h4>{{ support.support }} Details</h4>
+                                <p><strong>Description:</strong> {{ support.description }}</p>
+                                <p><strong>Matched Keywords:</strong> {{ support.matched_keywords|join(', ') }}</p>
+                                <p><strong>Details from PHB:</strong></p>
+                                <ul>
+                                    {% for detail in phb_supports[support.support].details %}
+                                    <li>{{ detail }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6">
+                    {% if event.personnel and event.personnel[0].name != "Unknown" %}
+                    <div class="event-section">
+                        <h3>Medical Personnel</h3>
+                        {% for person in event.personnel %}
+                        <div class="personnel-card">
+                            <h4>{{ person.name }}</h4>
+                            <p><strong>Type:</strong> {{ person.type }}</p>
+                            <p><strong>Specialty:</strong> {{ person.specialty }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if event.facilities %}
+                    <div class="event-section">
+                        <h3>Medical Facilities</h3>
+                        {% for facility in event.facilities %}
+                        <div class="facility-card">
+                            <h4>{{ facility.name }}</h4>
+                            <p><strong>Type:</strong> {{ facility.type }}</p>
+                            <p><strong>Specialty:</strong> {{ facility.specialty }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if event.events %}
+                    <div class="event-section">
+                        <h3>Medical Events</h3>
+                        {% for event_item in event.events %}
+                        <div class="event-item">
+                            <span class="event-type">{{ event_item.type }}</span>
+                            <div class="event-content">{{ event_item.content }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if event.attachments %}
+            <div class="event-section attachments-section">
+                <h3>Attachments</h3>
+                {% for attachment in event.attachments %}
+                <div class="attachment-card">
+                    <div class="attachment-icon">
+                        {% if 'image' in attachment.mime_type %}
+                        <i class="bi bi-file-image"></i>
+                        {% elif 'pdf' in attachment.mime_type %}
+                        <i class="bi bi-file-pdf"></i>
+                        {% elif 'word' in attachment.mime_type or 'document' in attachment.mime_type %}
+                        <i class="bi bi-file-word"></i>
+                        {% elif 'excel' in attachment.mime_type or 'sheet' in attachment.mime_type %}
+                        <i class="bi bi-file-excel"></i>
+                        {% else %}
+                        <i class="bi bi-file-earmark"></i>
+                        {% endif %}
+                    </div>
+                    <div class="attachment-details">
+                        <h4>{{ attachment.file_name }}</h4>
+                        <p>{{ attachment.mime_type }}</p>
+                    </div>
+                    <div class="attachment-actions">
+                        <a href="{{ url_for('get_attachment', event_id=event.id, filename=attachment.file_name) }}" target="_blank">View</a>
+                        <a href="{{ url_for('get_attachment', event_id=event.id, filename=attachment.file_name) }}" download>Download</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="event-section">
+                <h3>Full Content</h3>
+                <div class="content-section">{{ event.content }}</div>
+            </div>
+            
+            <a href="{{ url_for('index') }}" class="back-button">← Back to Timeline</a>
+            
+            {% if event.evernote_links %}
+                {% if event.evernote_links.web_share_link %}
+                <a href="{{ event.evernote_links.web_share_link }}" target="_blank" class="open-web-link">Open in Evernote Web</a>
+                {% endif %}
+                <a href="#" class="open-evernote" data-event-id="{{ event.id }}">Open in Evernote App</a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Handle opening events in Evernote
+        document.querySelector('.open-evernote').addEventListener('click', function(e) {
+            e.preventDefault();
+            const eventId = this.getAttribute('data-event-id');
+            
+            fetch(`/open_evernote/${eventId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        alert('Error opening Evernote: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error opening Evernote');
+                });
+        });
+    </script>
+</body>
+</html>

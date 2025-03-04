@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gwendolyn Vials Moore - Medical History Timeline with PHB Integration</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/timeline.css') }}">
+    <style>
+        :root {
+            --severe-color: rgba(255, 0, 0, 0.7);
+            --high-color: rgba(255, 165, 0, 0.7);
+            --moderate-color: rgba(255, 255, 0, 0.7);
+            --unknown-color: rgba(128, 128, 128, 0.7);
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background-color: #343a40;
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.2rem;
+            text-align: center;
+        }
+        
+        .header p {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+        
+        .sidebar {
+            background-color: #f0f0f0;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .sidebar h3 {
+            margin-top: 0;
+            border-bottom: 2px solid #343a40;
+            padding-bottom: 10px;
+            font-size: 1.4rem;
+        }
+        
+        .sidebar ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        
+        .sidebar li {
+            margin-bottom: 10px;
+        }
+        
+        .sidebar a {
+            text-decoration: none;
+            color: #495057;
+            display: block;
+            padding: 8px 10px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        
+        .sidebar a:hover, .sidebar a.active {
+            background-color: #e9ecef;
+            color: #212529;
+        }
+        
+        .timeline {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .timeline::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            background-color: #343a40;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            margin-left: -3px;
+        }
+        
+        .container-timeline {
+            padding: 10px 40px;
+            position: relative;
+            background-color: inherit;
+            width: 50%;
+        }
+        
+        .left {
+            left: 0;
+        }
+        
+        .right {
+            left: 50%;
+        }
+        
+        .left::before {
+            content: " ";
+            height: 0;
+            position: absolute;
+            top: 22px;
+            width: 0;
+            z-index: 1;
+            right: 30px;
+            border: medium solid #fff;
+            border-width: 10px 0 10px 10px;
+            border-color: transparent transparent transparent #fff;
+        }
+        
+        .right::before {
+            content: " ";
+            height: 0;
+            position: absolute;
+            top: 22px;
+            width: 0;
+            z-index: 1;
+            left: 30px;
+            border: medium solid #fff;
+            border-width: 10px 10px 10px 0;
+            border-color: transparent #fff transparent transparent;
+        }
+        
+        .right::after {
+            left: -13px;
+        }
+        
+        .content {
+            padding: 20px;
+            background-color: white;
+            position: relative;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .content h2 {
+            color: #343a40;
+            margin-top: 0;
+            font-size: 1.5rem;
+        }
+        
+        .content .date {
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        .content .age {
+            color: #6c757d;
+            font-style: italic;
+            margin-bottom: 5px;
+        }
+        
+        .content .specialty {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        
+        .phb-category {
+            display: inline-block;
+            padding: 3px 8px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        
+        .severity-SEVERE {
+            background-color: var(--severe-color);
+            color: white;
+        }
+        
+        .severity-HIGH {
+            background-color: var(--high-color);
+            color: white;
+        }
+        
+        .severity-MODERATE {
+            background-color: var(--moderate-color);
+            color: black;
+        }
+        
+        .severity-UNKNOWN {
+            background-color: var(--unknown-color);
+            color: white;
+        }
+        
+        .phb-support {
+            display: inline-block;
+            padding: 3px 8px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            background-color: #4e73df;
+            color: white;
+            font-size: 0.85rem;
+        }
+        
+        .personnel, .facility {
+            margin-top: 10px;
+        }
+        
+        .personnel span, .facility span {
+            display: inline-block;
+            padding: 2px 6px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            background-color: #e9ecef;
+            font-size: 0.85rem;
+        }
+        
+        .event-list {
+            margin-top: 15px;
+        }
+        
+        .event-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-left: 3px solid #6c757d;
+            background-color: #f8f9fa;
+        }
+        
+        .event-type {
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .view-details, .open-evernote, .open-web-link {
+            display: inline-block;
+            margin-top: 10px;
+            margin-right: 10px;
+            padding: 5px 10px;
+            background-color: #343a40;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+        
+        .view-details:hover, .open-evernote:hover, .open-web-link:hover {
+            background-color: #23272b;
+            color: white;
+        }
+        
+        .filters {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .filter-group {
+            margin-bottom: 10px;
+        }
+        
+        .filter-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .filter-group select, .filter-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        
+        .phb-overview {
+            margin-bottom: 30px;
+        }
+        
+        .phb-overview h3 {
+            border-bottom: 2px solid #343a40;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .phb-card {
+            background-color: white;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .phb-card h4 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .phb-card .severity-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        
+        .phb-card p {
+            margin-bottom: 10px;
+        }
+        
+        .phb-card ul {
+            padding-left: 20px;
+            margin-bottom: 0;
+        }
+        
+        .phb-card .related-events {
+            margin-top: 10px;
+            font-style: italic;
+            color: #6c757d;
+        }
+        
+        .patient-info {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .patient-info h3 {
+            margin-top: 0;
+            color: #343a40;
+            font-size: 1.4rem;
+            margin-bottom: 10px;
+        }
+        
+        .patient-info p {
+            margin-bottom: 5px;
+        }
+        
+        .navigation {
+            margin-bottom: 20px;
+        }
+        
+        .navigation a {
+            display: inline-block;
+            margin-right: 10px;
+            padding: 8px 15px;
+            background-color: #343a40;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+        
+        .navigation a:hover {
+            background-color: #23272b;
+            color: white;
+        }
+        
+        .attachments-indicator {
+            display: inline-block;
+            padding: 2px 6px;
+            margin-left: 5px;
+            border-radius: 50%;
+            background-color: #28a745;
+            color: white;
+            font-size: 0.8rem;
+        }
+        
+        @media screen and (max-width: 768px) {
+            .timeline::after {
+                left: 31px;
+            }
+            
+            .container-timeline {
+                width: 100%;
+                padding-left: 70px;
+                padding-right: 25px;
+            }
+            
+            .container-timeline::before {
+                left: 60px;
+                border: medium solid white;
+                border-width: 10px 10px 10px 0;
+                border-color: transparent white transparent transparent;
+            }
+            
+            .left::after, .right::after {
+                left: 18px;
+            }
+            
+            .right {
+                left: 0%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Gwendolyn Vials Moore - Medical History Timeline</h1>
+            <p>PHB-Integrated Medical History Visualization</p>
+        </div>
+        
+        <div class="navigation">
+            <a href="{{ url_for('index') }}" {% if request.path == url_for('index') %}class="active"{% endif %}>Main Timeline</a>
+            <a href="{{ url_for('diagnostic_journey') }}">Diagnostic Journey</a>
+            <a href="{{ url_for('patient') }}">Patient Information</a>
+        </div>
+        
+        <div class="patient-info">
+            <h3>Patient Information</h3>
+            <p><strong>Name:</strong> {{ patient_info.name }}</p>
+            <p><strong>Date of Birth:</strong> {{ patient_info.dob }}</p>
+            <p><strong>Birth Location:</strong> {{ patient_info.birth_location }}</p>
+            <p><strong>Current Age:</strong> <span id="current-age">Loading...</span></p>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-3">
+                <div class="sidebar">
+                    <h3>PHB Categories</h3>
+                    <ul>
+                        <li><a href="{{ url_for('index') }}" {% if not active_category %}class="active"{% endif %}>All Categories</a></li>
+                        {% for category, info in phb_categories.items() %}
+                        <li>
+                            <a href="{{ url_for('phb_category', category=category) }}" 
+                               {% if active_category == category %}class="active"{% endif %}
+                               style="border-left: 5px solid 
+                                     {% if info.severity == 'SEVERE' %}var(--severe-color)
+                                     {% elif info.severity == 'HIGH' %}var(--high-color)
+                                     {% elif info.severity == 'MODERATE' %}var(--moderate-color)
+                                     {% else %}var(--unknown-color){% endif %}">
+                                {{ category }} ({{ info.severity }})
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <h3>PHB Supports</h3>
+                    <ul>
+                        {% for support, info in phb_supports.items() %}
+                        <li>
+                            <a href="{{ url_for('phb_support', support=support) }}"
+                               {% if active_support == support %}class="active"{% endif %}>
+                                {{ support }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <h3>Medical Specialties</h3>
+                    <ul>
+                        {% set specialties = [] %}
+                        {% for event in events %}
+                            {% if event.specialty not in specialties %}
+                                {% set _ = specialties.append(event.specialty) %}
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% for specialty in specialties|sort %}
+                        <li>
+                            <a href="{{ url_for('specialty', specialty=specialty) }}"
+                               {% if active_specialty == specialty %}class="active"{% endif %}>
+                                {{ specialty }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="col-md-9">
+                <div class="filters">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="filter-group">
+                                <label for="date-filter">Filter by Date Range:</label>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <input type="date" id="date-from" class="form-control" placeholder="From">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="date" id="date-to" class="form-control" placeholder="To">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="filter-group">
+                                <label for="search-filter">Search:</label>
+                                <input type="text" id="search-filter" class="form-control" placeholder="Search for keywords...">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if active_category %}
+                <div class="phb-overview">
+                    <h3>PHB Category: {{ active_category }}</h3>
+                    <div class="phb-card" style="border-left: 5px solid 
+                         {% if phb_categories[active_category].severity == 'SEVERE' %}var(--severe-color)
+                         {% elif phb_categories[active_category].severity == 'HIGH' %}var(--high-color)
+                         {% elif phb_categories[active_category].severity == 'MODERATE' %}var(--moderate-color)
+                         {% else %}var(--unknown-color){% endif %}">
+                        <h4>
+                            <span class="severity-indicator" style="background-color: 
+                                 {% if phb_categories[active_category].severity == 'SEVERE' %}var(--severe-color)
+                                 {% elif phb_categories[active_category].severity == 'HIGH' %}var(--high-color)
+                                 {% elif phb_categories[active_category].severity == 'MODERATE' %}var(--moderate-color)
+                                 {% else %}var(--unknown-color){% endif %}"></span>
+                            {{ active_category }} ({{ phb_categories[active_category].severity }})
+                        </h4>
+                        <p><strong>Description:</strong> {{ phb_categories[active_category].description }}</p>
+                        <p><strong>Details:</strong></p>
+                        <ul>
+                            {% for detail in phb_categories[active_category].details %}
+                            <li>{{ detail }}</li>
+                            {% endfor %}
+                        </ul>
+                        <p class="related-events">{{ events|length }} related medical events found</p>
+                    </div>
+                </div>
+                {% elif active_support %}
+                <div class="phb-overview">
+                    <h3>PHB Support: {{ active_support }}</h3>
+                    <div class="phb-card" style="border-left: 5px solid #4e73df">
+                        <h4>
+                            <span class="severity-indicator" style="background-color: #4e73df"></span>
+                            {{ active_support }}
+                        </h4>
+                        <p><strong>Description:</strong> {{ phb_supports[active_support].description }}</p>
+                        <p><strong>Details:</strong></p>
+                        <ul>
+                            {% for detail in phb_supports[active_support].details %}
+                            <li>{{ detail }}</li>
+                            {% endfor %}
+                        </ul>
+                        <p class="related-events">{{ events|length }} related medical events found</p>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="timeline">
+                    {% for event in events %}
+                    <div class="container-timeline {% if loop.index is odd %}left{% else %}right{% endif %}">
+                        <div class="content">
+                            <h2>
+                                {{ event.title }}
+                                {% if event.attachments %}
+                                <span class="attachments-indicator">{{ event.attachments|length }}</span>
+                                {% endif %}
+                            </h2>
+                            <p class="date">Date: {{ event.date }}</p>
+                            <p class="age">Age: {{ event.age }}</p>
+                            <p class="specialty">Specialty: {{ event.specialty }}</p>
+                            
+                            {% if event.phb_categories %}
+                            <div class="phb-categories">
+                                <strong>PHB Categories:</strong><br>
+                                {% for category in event.phb_categories %}
+                                <span class="phb-category severity-{{ category.severity }}">
+                                    {{ category.category }} ({{ category.severity }})
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if event.phb_supports %}
+                            <div class="phb-supports">
+                                <strong>PHB Supports:</strong><br>
+                                {% for support in event.phb_supports %}
+                                <span class="phb-support">{{ support.support }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if event.personnel and event.personnel[0].name != "Unknown" %}
+                            <div class="personnel">
+                                <strong>Personnel:</strong><br>
+                                {% for person in event.personnel %}
+                                <span>{{ person.type }}: {{ person.name }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if event.facilities %}
+                            <div class="facility">
+                                <strong>Facilities:</strong><br>
+                                {% for facility in event.facilities %}
+                                <span>{{ facility.type }}: {{ facility.name }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if event.events %}
+                            <div class="event-list">
+                                <strong>Events:</strong>
+                                {% for event_item in event.events[:3] %}
+                                <div class="event-item">
+                                    <span class="event-type">{{ event_item.type }}:</span> {{ event_item.content }}
+                                </div>
+                                {% endfor %}
+                                {% if event.events|length > 3 %}
+                                <div class="event-item">
+                                    <em>{{ event.events|length - 3 }} more events...</em>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            <a href="{{ url_for('event_detail', event_id=event.id) }}" class="view-details">View Details</a>
+                            
+                            {% if event.evernote_links %}
+                                {% if event.evernote_links.web_share_link %}
+                                <a href="{{ event.evernote_links.web_share_link }}" target="_blank" class="open-web-link">Open in Evernote Web</a>
+                                {% endif %}
+                                <a href="#" class="open-evernote" data-event-id="{{ event.id }}">Open in Evernote App</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Calculate and display current age
+        function calculateAge(birthDateString) {
+            const birthDate = new Date(birthDateString);
+            const today = new Date();
+            
+            let years = today.getFullYear() - birthDate.getFullYear();
+            let months = today.getMonth() - birthDate.getMonth();
+            let days = today.getDate() - birthDate.getDate();
+            
+            if (days < 0) {
+                months--;
+                // Get the number of days in the previous month
+                const lastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+                days += lastMonth.getDate();
+            }
+            
+            if (months < 0) {
+                years--;
+                months += 12;
+            }
+            
+            return `${years} years, ${months} months, ${days} days`;
+        }
+        
+        document.getElementById('current-age').textContent = calculateAge('{{ patient_info.dob }}');
+        
+        // Filter events by date range
+        document.getElementById('date-from').addEventListener('change', filterEvents);
+        document.getElementById('date-to').addEventListener('change', filterEvents);
+        
+        // Filter events by search term
+        document.getElementById('search-filter').addEventListener('input', filterEvents);
+        
+        function filterEvents() {
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
+            const searchTerm = document.getElementById('search-filter').value.toLowerCase();
+            
+            const timelineContainers = document.querySelectorAll('.container-timeline');
+            
+            timelineContainers.forEach(container => {
+                let showContainer = true;
+                
+                // Filter by date range
+                if (dateFrom || dateTo) {
+                    const dateElement = container.querySelector('.date');
+                    if (dateElement) {
+                        const eventDateText = dateElement.textContent.replace('Date: ', '');
+                        const eventDate = new Date(eventDateText);
+                        
+                        if (dateFrom && new Date(dateFrom) > eventDate) {
+                            showContainer = false;
+                        }
+                        
+                        if (dateTo && new Date(dateTo) < eventDate) {
+                            showContainer = false;
+                        }
+                    }
+                }
+                
+                // Filter by search term
+                if (searchTerm && showContainer) {
+                    const contentElement = container.querySelector('.content');
+                    if (contentElement) {
+                        const contentText = contentElement.textContent.toLowerCase();
+                        if (!contentText.includes(searchTerm)) {
+                            showContainer = false;
+                        }
+                    }
+                }
+                
+                // Show or hide the container
+                container.style.display = showContainer ? 'block' : 'none';
+            });
+        }
+        
+        // Handle opening events in Evernote
+        document.querySelectorAll('.open-evernote').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const eventId = this.getAttribute('data-event-id');
+                
+                fetch(`/open_evernote/${eventId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.success) {
+                            alert('Error opening Evernote: ' + (data.message || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error opening Evernote');
+                    });
+            });
+        });
+    </script>
+</body>
+</html>
