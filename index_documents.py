@@ -1,7 +1,7 @@
 """
 index_documents.py
 
-A script to index documents from Evernote export files and external documents,
+A script to index documents from Evernote export files, Evernote API, and external documents,
 creating a knowledge store that can be used by the main application.
 """
 
@@ -20,6 +20,13 @@ import attachment_processor
 import improved_phb_details as phb_details
 import patient_info
 import evernote_utils
+
+# Try to import Evernote API module
+try:
+    import evernote_api
+    EVERNOTE_API_AVAILABLE = True
+except ImportError:
+    EVERNOTE_API_AVAILABLE = False
 
 # Directory paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -58,6 +65,48 @@ def index_enex_files():
     
     print(f"Indexed {len(all_notes)} notes from {len(enex_files)} ENEX files.")
     return all_notes
+
+def index_evernote_api(auth_token=None):
+    """
+    Index notes directly from Evernote API.
+    
+    Parameters:
+        auth_token (str): Evernote authentication token.
+        
+    Returns:
+        list: List of indexed notes.
+    """
+    if not EVERNOTE_API_AVAILABLE:
+        print("Evernote API module not available. Skipping API indexing.")
+        return []
+    
+    print("Indexing notes from Evernote API...")
+    
+    # Connect to Evernote API if auth_token is provided
+    if auth_token:
+        if not evernote_api.connect_to_evernote(auth_token):
+            print("Failed to connect to Evernote API. Skipping API indexing.")
+            return []
+    
+    # Check if connected to Evernote API
+    if not hasattr(evernote_api.evernote_api, 'connected') or not evernote_api.evernote_api.connected:
+        print("Not connected to Evernote API. Skipping API indexing.")
+        return []
+    
+    # Index notes from Evernote API
+    notes = evernote_api.index_evernote_notes()
+    
+    # Save notes to knowledge store
+    if notes:
+        api_notes_path = os.path.join(KNOWLEDGE_STORE_DIR, "api_notes.json")
+        with open(api_notes_path, 'w') as f:
+            json.dump(notes, f)
+        
+        print(f"Indexed {len(notes)} notes from Evernote API.")
+    else:
+        print("No notes indexed from Evernote API.")
+    
+    return notes
 
 def index_external_documents():
     """
@@ -202,8 +251,36 @@ def create_events(notes, processed_attachments):
     
     # Save events to knowledge store
     events_path = os.path.join(KNOWLEDGE_STORE_DIR, "events.json")
-    with open(events_path, 'w') as f:
-        json.dump(events, f)
+    
+    # If events file already exists, merge with existing events
+    if os.path.exists(events_path):
+        try:
+            with open(events_path, 'r') as f:
+                existing_events = json.load(f)
+            
+            # Create a lookup for existing events by ID
+            existing_event_ids = {event["id"] for event in existing_events}
+            
+            # Add new events that don't already exist
+            for event in events:
+                if event["id"] not in existing_event_ids:
+                    existing_events.append(event)
+            
+            # Save merged events
+            with open(events_path, 'w') as f:
+                json.dump(existing_events, f)
+            
+            print(f"Merged {len(events)} new events with {len(existing_events) - len(events)} existing events.")
+            events = existing_events
+        except Exception as e:
+            print(f"Error merging events: {e}")
+            # If there's an error, just save the new events
+            with open(events_path, 'w') as f:
+                json.dump(events, f)
+    else:
+        # Save new events
+        with open(events_path, 'w') as f:
+            json.dump(events, f)
     
     print(f"Created {len(events)} events.")
     return events
@@ -310,7 +387,7 @@ def update_phb_info():
     
     print("PHB information updated.")
 
-def run_indexing(enex_only=False, docs_only=False, update_phb_only=False):
+def run_indexing(enex_only=False, docs_only=False, update_phb_only=False, api_only=False, auth_token=None):
     """
     Run the indexing process programmatically.
     
@@ -318,6 +395,8 @@ def run_indexing(enex_only=False, docs_only=False, update_phb_only=False):
         enex_only (bool): Only index ENEX files.
         docs_only (bool): Only index external documents.
         update_phb_only (bool): Only update PHB information.
+        api_only (bool): Only index from Evernote API.
+        auth_token (str): Evernote authentication token.
         
     Returns:
         bool: True if successful, False otherwise.
@@ -332,20 +411,45 @@ def run_indexing(enex_only=False, docs_only=False, update_phb_only=False):
         print(f"  DOCX processing available: {ocr_status['docx_available']}")
         print(f"  PDF processing available: {ocr_status['pdf_available']}")
         print(f"  Vector DB available: {ocr_status['vector_db_available']}")
+        print(f"  Evernote API available: {EVERNOTE_API_AVAILABLE}")
         print()
         
         notes = []
         external_docs = []
+        api_notes = []
         
         if update_phb_only:
             update_phb_info()
             return True
         
-        if not docs_only:
+        if api_only and EVERNOTE_API_AVAILABLE:
+            api_notes = index_evernote_api(auth_token)
+            if not api_notes:
+                print("No notes indexed from Evernote API.")
+                return False
+            
+            # Process API notes
+            processed_attachments, _ = process_all_documents(api_notes, [])
+            events = create_events(api_notes, processed_attachments)
+            create_vector_store(events, [])
+            update_patient_info(events)
+            
+            print("API indexing complete!")
+            print(f"Indexed {len(api_notes)} notes from Evernote API and created {len(events)} events.")
+            print(f"Knowledge store created at: {KNOWLEDGE_STORE_DIR}")
+            print(f"Vector store created at: {VECTOR_DB_DIR}")
+            
+            return True
+        
+        if not docs_only and not api_only:
             notes = index_enex_files()
         
-        if not enex_only:
+        if not enex_only and not api_only:
             external_docs = index_external_documents()
+        
+        if EVERNOTE_API_AVAILABLE and not enex_only and not docs_only:
+            api_notes = index_evernote_api(auth_token)
+            notes.extend(api_notes)
         
         processed_attachments, processed_external_docs = process_all_documents(notes, external_docs)
         events = create_events(notes, processed_attachments)
@@ -370,12 +474,16 @@ def main():
     parser.add_argument("--enex-only", action="store_true", help="Only index ENEX files")
     parser.add_argument("--docs-only", action="store_true", help="Only index external documents")
     parser.add_argument("--update-phb", action="store_true", help="Update PHB information")
+    parser.add_argument("--api-only", action="store_true", help="Only index from Evernote API")
+    parser.add_argument("--auth-token", type=str, help="Evernote authentication token")
     args = parser.parse_args()
     
     run_indexing(
         enex_only=args.enex_only,
         docs_only=args.docs_only,
-        update_phb_only=args.update_phb
+        update_phb_only=args.update_phb,
+        api_only=args.api_only,
+        auth_token=args.auth_token
     )
 
 if __name__ == "__main__":

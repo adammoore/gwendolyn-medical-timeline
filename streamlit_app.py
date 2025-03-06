@@ -10,6 +10,7 @@ A Streamlit application that:
 6. Provides semantic search across all content.
 7. Supports document addition, editing, and merging curation features.
 8. Allows category management.
+9. Integrates with Evernote API for direct access to notes.
 """
 
 import streamlit as st
@@ -35,6 +36,7 @@ import attachment_processor
 import upload_handler
 from streamlit_components.streamlit_curation import display_curation_dashboard
 from streamlit_components.streamlit_entity_management import display_entity_management_dashboard
+from streamlit_components.streamlit_evernote import display_evernote_dashboard
 
 # Set page config
 st.set_page_config(
@@ -267,6 +269,17 @@ def display_timeline(events, title="Medical Timeline"):
                 st.markdown("### Facilities")
                 for facility in event["facilities"]:
                     st.markdown(f"- **{facility['name']}** ({facility['type']})")
+            
+            # Display Evernote links if available
+            if "evernote_links" in event and event["evernote_links"]:
+                st.markdown("### Evernote Links")
+                links = event["evernote_links"]
+                
+                if "web_share_link" in links and links["web_share_link"]:
+                    st.markdown(f"[Open in Evernote Web]({links['web_share_link']})")
+                
+                if "app_link" in links and links["app_link"]:
+                    st.markdown(f"[Open in Evernote App]({links['app_link']})")
             
             # Display attachments
             if "attachments" in event and event["attachments"]:
@@ -647,6 +660,14 @@ def display_system_status():
     # Get OCR status
     ocr_status = attachment_processor.get_ocr_status()
     
+    # Check Evernote API status
+    evernote_api_available = False
+    try:
+        import evernote_api
+        evernote_api_available = True
+    except ImportError:
+        pass
+    
     # Display status in a table
     status_data = {
         "Component": [
@@ -655,7 +676,8 @@ def display_system_status():
             "OpenCV Image Processing", 
             "DOCX Processing", 
             "PDF Text Extraction",
-            "Vector Database"
+            "Vector Database",
+            "Evernote API"
         ],
         "Status": [
             "✅ Available" if ocr_status["tesseract_available"] else "❌ Not Available",
@@ -663,7 +685,8 @@ def display_system_status():
             "✅ Available" if ocr_status["cv2_available"] else "❌ Not Available",
             "✅ Available" if ocr_status["docx_available"] else "❌ Not Available",
             "✅ Available" if ocr_status["pdf_available"] else "❌ Not Available",
-            "✅ Available" if ocr_status["vector_db_available"] else "❌ Not Available"
+            "✅ Available" if ocr_status["vector_db_available"] else "❌ Not Available",
+            "✅ Available" if evernote_api_available else "❌ Not Available"
         ]
     }
     
@@ -742,6 +765,17 @@ def display_system_status():
         - **Windows**: Download and install from [poppler for Windows](http://blog.alivate.com.au/poppler-windows/)
         """)
     
+    if not evernote_api_available:
+        st.markdown("""
+        #### Evernote API Installation
+        
+        To enable Evernote API integration:
+        
+        ```
+        pip install evernote3
+        ```
+        """)
+    
     # Display note about limited functionality
     if not all([ocr_status["tesseract_available"], ocr_status["pdf_image_available"], ocr_status["cv2_available"]]):
         st.warning("""
@@ -762,11 +796,11 @@ def main():
         "Go to",
         ["Timeline", "Diagnostic Journey", "Medical Practitioners", "Medical Facilities", 
          "PHB Categories", "PHB Supports", "Patient Info", "Search", "Curation Dashboard", 
-         "Entity Management", "System Status"]
+         "Entity Management", "Evernote Integration", "System Status"]
     )
     
     # Check if knowledge store is available
-    if not ks.is_knowledge_store_available() and page not in ["System Status", "Curation Dashboard"]:
+    if not ks.is_knowledge_store_available() and page not in ["System Status", "Curation Dashboard", "Evernote Integration"]:
         st.warning("""
         Knowledge store not found. Please run the indexing script to create the knowledge store:
         
@@ -809,6 +843,9 @@ def main():
     
     elif page == "Entity Management":
         display_entity_management_dashboard()
+    
+    elif page == "Evernote Integration":
+        display_evernote_dashboard()
     
     elif page == "System Status":
         display_system_status()
